@@ -1,0 +1,6 @@
+@ApexPredatorTrialsAPI_HostAddress = http://localhost:5094
+
+GET {{ApexPredatorTrialsAPI_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
