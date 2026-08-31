@@ -14,5 +14,9 @@ namespace ApexPredatorTrialsAPI.Models
         public int LoserKills { get; set; }
         public int NestsDestroyed { get; set; }
         public DateTime DateTimeConcluded { get; set; }
+
+        public Match Match { get; set; } = null!;
+        public Player Winner { get; set; } = null!;
+        public Player Loser { get; set; } = null!;
     }
 }

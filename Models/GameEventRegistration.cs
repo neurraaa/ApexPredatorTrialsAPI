@@ -8,5 +8,8 @@ namespace ApexPredatorTrialsAPI.Models
         public int EventId { get; set; }
         public int PlayerId { get; set; }
         public DateTime DateRegistered { get; set; }
+
+        public GameEvent Event { get; set; } = null!;
+        public Player Player { get; set; } = null!;
     }
 }

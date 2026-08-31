@@ -13,5 +13,7 @@ namespace ApexPredatorTrialsAPI.Models
         public int LegendLevel {  get; set; }
 
         public int HoursTotal => HunterHoursPlayed + HumanHoursPlayed;
+
+        public Player Player { get; set; } = null!;
     }
 }

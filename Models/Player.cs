@@ -10,5 +10,11 @@ namespace ApexPredatorTrialsAPI.Models
         public string Platform { get; set; } = string.Empty;
         public string Region {  get; set; } = string.Empty;
         public int PlayerStatsId { get; set; }
+
+        public User User { get; set; } = null!;
+        public PlayerStats PlayerStats { get; set; } = null!;
+        public ICollection<GameEventRegistration> EventRegistrations { get; set; } = new List<GameEventRegistration>();
+        public ICollection<Match> HunterMatches { get; set; } = new List<Match>();
+        public ICollection<Match> HumanMatches { get; set; } = new List<Match>();
     }
 }
