@@ -9,10 +9,10 @@ namespace ApexPredatorTrialsAPI.Data
 
         public DbSet<User> Users { get; set; }
         public DbSet<Player> Players { get; set; }
-        public DbSet<PlayerStats> PlayersStats { get; set; }
+        public DbSet<PlayerStats> PlayersStatistics { get; set; }
         public DbSet<GameMap> Maps { get; set; }
         public DbSet<Match> Matches { get; set; }
-        public DbSet<MatchResults> MatcheResults { get; set; }
+        public DbSet<MatchResults> MatchResults { get; set; }
         public DbSet<GameEvent> Events { get; set; }
         public DbSet<GameEventRegistration> EventRegistrations { get; set; }
         public DbSet<GameEventSchedule> Schedules { get; set; }
