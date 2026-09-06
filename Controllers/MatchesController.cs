@@ -1,9 +1,7 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using AutoMapper;
-using ApexPredatorTrialsAPI.Data;
-using ApexPredatorTrialsAPI.Models;
-using ApexPredatorTrialsAPI.DTOs;
+﻿using ApexPredatorTrialsAPI.DTOs;
+using ApexPredatorTrialsAPI.Interfaces;
+using ApexPredatorTrialsAPI.Services;
+using Microsoft.AspNetCore.Mvc;
 
 namespace ApexPredatorTrialsAPI.Controllers
 {
@@ -11,80 +9,43 @@ namespace ApexPredatorTrialsAPI.Controllers
     [Route("api/matches")]
     public class MatchesController : ControllerBase
     {
-        private readonly AppDbContext _context;
-        private readonly IMapper _mapper;
+        private readonly IMatchService _service;
 
-        public MatchesController(AppDbContext context, IMapper mapper)
-        {
-            _context = context;
-            _mapper = mapper;
-        }
+        public MatchesController(IMatchService service) => _service = service;
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<MatchDto>>> GetAll()
-        {
-            var matches = await _context.Matches
-                .Include(m => m.HunterPlayer)
-                .Include(m => m.HumanPlayer)
-                .Include(m => m.Map)
-                .ToListAsync();
-
-            return Ok(_mapper.Map<List<MatchDto>>(matches));
-        }
+        public async Task<ActionResult<IEnumerable<MatchDto>>> GetAll() =>
+            Ok(await _service.GetAllAsync());
 
         [HttpGet("{id}")]
         public async Task<ActionResult<MatchDto>> GetById(int id)
         {
-            var match = await _context.Matches
-                .Include(m => m.HunterPlayer)
-                .Include(m => m.HumanPlayer)
-                .Include(m => m.Map)
-                .FirstOrDefaultAsync(m => m.Id == id);
-
-            if (match is null) return NotFound();
-            return _mapper.Map<MatchDto>(match);
+            var match = await _service.GetByIdAsync(id);
+            return match is null ? NotFound() : Ok(match);
         }
 
         [HttpPost]
         public async Task<ActionResult<MatchDto>> Create(MatchWriteDto dto)
         {
-            if (dto.HunterPlayerId == dto.HumanPlayerId)
-                return BadRequest("A player cannot play both sides of the same match.");
-
-            var match = _mapper.Map<Match>(dto);
-            _context.Matches.Add(match);
-            await _context.SaveChangesAsync();
-
-            await _context.Entry(match).Reference(m => m.HunterPlayer).LoadAsync();
-            await _context.Entry(match).Reference(m => m.HumanPlayer).LoadAsync();
-            await _context.Entry(match).Reference(m => m.Map).LoadAsync();
-
-            return CreatedAtAction(nameof(GetById), new { id = match.Id }, _mapper.Map<MatchDto>(match));
+            var result = await _service.CreateAsync(dto);
+            if (result.Status == ServiceStatus.Invalid) return BadRequest(result.Error);
+            return CreatedAtAction(nameof(GetById), new { id = result.Data!.Id }, result.Data);
         }
 
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, MatchWriteDto dto)
         {
-            if (dto.HunterPlayerId == dto.HumanPlayerId)
-                return BadRequest("A player cannot play both sides of the same match.");
-
-            var match = await _context.Matches.FindAsync(id);
-            if (match is null) return NotFound();
-
-            _mapper.Map(dto, match);
-            await _context.SaveChangesAsync();
-            return NoContent();
+            var result = await _service.UpdateAsync(id, dto);
+            return result.Status switch
+            {
+                ServiceStatus.Invalid => BadRequest(result.Error),
+                ServiceStatus.NotFound => NotFound(),
+                _ => NoContent()
+            };
         }
 
         [HttpDelete("{id}")]
-        public async Task<IActionResult> Delete(int id)
-        {
-            var match = await _context.Matches.FindAsync(id);
-            if (match is null) return NotFound();
-
-            _context.Matches.Remove(match);
-            await _context.SaveChangesAsync();
-            return NoContent();
-        }
+        public async Task<IActionResult> Delete(int id) =>
+            await _service.DeleteAsync(id) ? NoContent() : NotFound();
     }
 }

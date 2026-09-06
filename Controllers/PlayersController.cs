@@ -1,9 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using AutoMapper;
-using ApexPredatorTrialsAPI.Data;
-using ApexPredatorTrialsAPI.Models;
-using ApexPredatorTrialsAPI.DTOs;
+﻿using ApexPredatorTrialsAPI.DTOs;
+using ApexPredatorTrialsAPI.Interfaces;
+using Microsoft.AspNetCore.Mvc;
 
 namespace ApexPredatorTrialsAPI.Controllers
 {
@@ -11,69 +8,38 @@ namespace ApexPredatorTrialsAPI.Controllers
     [ApiController]
     public class PlayersController : ControllerBase
     {
-        private readonly AppDbContext _context;
-        private readonly IMapper _mapper;
+        private readonly IPlayerService _service;
 
-        public PlayersController(AppDbContext context, IMapper mapper)
-        {
-            _context = context;
-            _mapper = mapper;
-        }
+        public PlayersController(IPlayerService service) => _service = service;
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<PlayerDto>>> GetPlayers()
-        {
-            var players = await _context.Players.Include(p => p.PlayerStats).ToListAsync();
-            return Ok(_mapper.Map<List<PlayerDto>>(players));
-        }
+        public async Task<ActionResult<IEnumerable<PlayerDto>>> GetPlayers() =>
+            Ok(await _service.GetAllAsync());
 
         [HttpGet("{id}")]
         public async Task<ActionResult<PlayerDto>> GetPlayer(int id)
         {
-            var player = await _context.Players
-                .Include(p => p.PlayerStats)
-                .FirstOrDefaultAsync(p => p.Id == id);
-
-            if (player is null) return NotFound();
-            return _mapper.Map<PlayerDto>(player);
+            var player = await _service.GetByIdAsync(id);
+            return player is null ? NotFound() : Ok(player);
         }
 
         [HttpGet("region/{region}")]
-        public async Task<ActionResult<IEnumerable<PlayerDto>>> GetPlayersByRegion(string region)
-        {
-            var players = await _context.Players.Where(p => p.Region.ToUpper() == region.ToUpper()).ToListAsync();
-            return Ok(_mapper.Map<List<PlayerDto>>(players));
-        }
+        public async Task<ActionResult<IEnumerable<PlayerDto>>> GetPlayersByRegion(string region) =>
+            Ok(await _service.GetByRegionAsync(region));
 
         [HttpPost]
         public async Task<ActionResult<PlayerDto>> CreatePlayer(PlayerWriteDto dto)
         {
-            var player = _mapper.Map<Player>(dto);
-            _context.Players.Add(player);
-            await _context.SaveChangesAsync();
-            return CreatedAtAction(nameof(GetPlayer), new { id = player.Id }, _mapper.Map<PlayerDto>(player));
+            var player = await _service.CreateAsync(dto);
+            return CreatedAtAction(nameof(GetPlayer), new { id = player.Id }, player);
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdatePlayer(int id, PlayerWriteDto dto)
-        {
-            var player = await _context.Players.FindAsync(id);
-            if (player is null) return NotFound();
-
-            _mapper.Map(dto, player);
-            await _context.SaveChangesAsync();
-            return NoContent();
-        }
+        public async Task<IActionResult> UpdatePlayer(int id, PlayerWriteDto dto) =>
+            await _service.UpdateAsync(id, dto) ? NoContent() : NotFound();
 
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeletePlayer(int id)
-        {
-            var player = await _context.Players.FindAsync(id);
-            if (player is null) return NotFound();
-
-            _context.Players.Remove(player);
-            await _context.SaveChangesAsync();
-            return NoContent();
-        }
+        public async Task<IActionResult> DeletePlayer(int id) =>
+            await _service.DeleteAsync(id) ? NoContent() : NotFound();
     }
 }

@@ -1,9 +1,7 @@
-﻿using ApexPredatorTrialsAPI.Data;
-using ApexPredatorTrialsAPI.Models;
-using ApexPredatorTrialsAPI.DTOs;
-using AutoMapper;
+﻿using ApexPredatorTrialsAPI.DTOs;
+using ApexPredatorTrialsAPI.Services;
+using ApexPredatorTrialsAPI.Interfaces;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace ApexPredatorTrialsAPI.Controllers
 {
@@ -11,55 +9,31 @@ namespace ApexPredatorTrialsAPI.Controllers
     [Route("api/event-registrations")]
     public class EventRegistrationsController : ControllerBase
     {
-        private readonly AppDbContext _context;
-        private readonly IMapper _mapper;
+        private readonly IGameEventRegistrationService _service;
 
-        public EventRegistrationsController(AppDbContext context, IMapper mapper)
-        {
-            _context = context;
-            _mapper = mapper;
-        }
+        public EventRegistrationsController(IGameEventRegistrationService service) => _service = service;
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<GameEventRegistrationDto>>> GetAll()
-        {
-            var regs = await _context.EventRegistrations.ToListAsync();
-            return Ok(_mapper.Map<List<GameEventRegistrationDto>>(regs));
-        }
+        public async Task<ActionResult<IEnumerable<GameEventRegistrationDto>>> GetAll() =>
+            Ok(await _service.GetAllAsync());
 
         [HttpGet("{id}")]
         public async Task<ActionResult<GameEventRegistrationDto>> GetById(int id)
         {
-            var reg = await _context.EventRegistrations.FindAsync(id);
-            if (reg is null) return NotFound();
-            return _mapper.Map<GameEventRegistrationDto>(reg);
+            var reg = await _service.GetByIdAsync(id);
+            return reg is null ? NotFound() : Ok(reg);
         }
 
         [HttpPost]
         public async Task<ActionResult<GameEventRegistrationDto>> Create(GameEventRegistrationCreateDto dto)
         {
-            var alreadyRegistered = await _context.EventRegistrations
-                .AnyAsync(r => r.EventId == dto.EventId && r.PlayerId == dto.PlayerId);
-            if (alreadyRegistered)
-                return BadRequest("This player is already registered for this event.");
-
-            var reg = _mapper.Map<GameEventRegistration>(dto);
-            reg.DateRegistered = DateTime.UtcNow;
-
-            _context.EventRegistrations.Add(reg);
-            await _context.SaveChangesAsync();
-            return CreatedAtAction(nameof(GetById), new { id = reg.Id }, _mapper.Map<GameEventRegistrationDto>(reg));
+            var result = await _service.CreateAsync(dto);
+            if (result.Status == ServiceStatus.Invalid) return BadRequest(result.Error);
+            return CreatedAtAction(nameof(GetById), new { id = result.Data!.Id }, result.Data);
         }
 
         [HttpDelete("{id}")]
-        public async Task<IActionResult> Delete(int id)
-        {
-            var reg = await _context.EventRegistrations.FindAsync(id);
-            if (reg is null) return NotFound();
-
-            _context.EventRegistrations.Remove(reg);
-            await _context.SaveChangesAsync();
-            return NoContent();
-        }
+        public async Task<IActionResult> Delete(int id) =>
+            await _service.DeleteAsync(id) ? NoContent() : NotFound();
     }
 }

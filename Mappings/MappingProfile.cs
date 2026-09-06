@@ -11,10 +11,9 @@ namespace ApexPredatorTrialsAPI.Mappings
             CreateMap<Player, PlayerDto>();
             CreateMap<PlayerWriteDto, Player>();
 
-            // No ReverseMap on User - PasswordHash must never come from a DTO field copy.
             CreateMap<User, UserDto>();
             CreateMap<UserRegisterDto, User>()
-                .ForMember(dest => dest.PasswordHash, opt => opt.Ignore()); // hashed explicitly in the controller
+                .ForMember(dest => dest.PasswordHash, opt => opt.Ignore()); // hashed explicitly in controller
 
             CreateMap<PlayerStats, PlayerStatsDto>();
             CreateMap<PlayerStatsWriteDto, PlayerStats>();
@@ -25,14 +24,12 @@ namespace ApexPredatorTrialsAPI.Mappings
             CreateMap<GameEvent, GameEventDto>();
             CreateMap<GameEventWriteDto, GameEvent>();
 
-            CreateMap<EventRegistration, EventRegistrationDto>();
-            CreateMap<EventRegistrationCreateDto, EventRegistration>();
+            CreateMap<GameEventRegistration, GameEventRegistrationDto>();
+            CreateMap<GameEventRegistrationCreateDto, GameEventRegistration>();
 
-            CreateMap<Schedule, ScheduleDto>();
-            CreateMap<ScheduleWriteDto, Schedule>();
+            CreateMap<GameEventSchedule, GameEventScheduleDto>();
+            CreateMap<GameEventScheduleWriteDto, GameEventSchedule>();
 
-            // Match -> MatchDto flattens HunterPlayer.Name -> HunterPlayerName etc.
-            // automatically, since the controller Include()s those navigations.
             CreateMap<Match, MatchDto>();
             CreateMap<MatchWriteDto, Match>();
 
