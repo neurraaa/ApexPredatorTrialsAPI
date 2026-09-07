@@ -9,8 +9,13 @@ namespace ApexPredatorTrialsAPI.Controllers
     public class PlayerStatisticsController : ControllerBase
     {
         private readonly IPlayerStatsService _service;
+        private readonly ILogger<PlayerStatisticsController> _logger;
 
-        public PlayerStatisticsController(IPlayerStatsService service) => _service = service;
+        public PlayerStatisticsController(IPlayerStatsService service, ILogger<PlayerStatisticsController> logger)
+        {
+            _service = service;
+            _logger = logger;
+        }
 
         [HttpGet]
         public async Task<ActionResult<IEnumerable<PlayerStatsDto>>> GetAll() =>
@@ -27,15 +32,40 @@ namespace ApexPredatorTrialsAPI.Controllers
         public async Task<ActionResult<PlayerStatsDto>> Create(PlayerStatsWriteDto dto)
         {
             var stats = await _service.CreateAsync(dto);
+
+            _logger.LogInformation("Statistics ({StatsId}) created", stats.Id);
+
             return CreatedAtAction(nameof(GetById), new { id = stats.Id }, stats);
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> Update(int id, PlayerStatsWriteDto dto) =>
-            await _service.UpdateAsync(id, dto) ? NoContent() : NotFound();
+        public async Task<IActionResult> Update(int id, PlayerStatsWriteDto dto)
+        {
+            if (!await _service.UpdateAsync(id, dto))
+            {
+                _logger.LogWarning("Update failed: Statistics ({StatsId}) not found", id);
+
+                return NotFound();
+            }
+
+            _logger.LogInformation("Statistics ({StatsId}) updated", id);
+
+            return NoContent();
+        }
 
         [HttpDelete("{id}")]
-        public async Task<IActionResult> Delete(int id) =>
-            await _service.DeleteAsync(id) ? NoContent() : NotFound();
+        public async Task<IActionResult> Delete(int id)
+        {
+            if (!await _service.DeleteAsync(id))
+            {
+                _logger.LogWarning("Delete failed: Statistics ({StatsId}) not found", id);
+
+                return NotFound();
+            }
+
+            _logger.LogInformation("Statistics ({StatsId}) deleted", id);
+
+            return NoContent();
+        }
     }
 }

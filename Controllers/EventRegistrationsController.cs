@@ -10,8 +10,13 @@ namespace ApexPredatorTrialsAPI.Controllers
     public class EventRegistrationsController : ControllerBase
     {
         private readonly IGameEventRegistrationService _service;
+        private readonly ILogger<EventRegistrationsController> _logger;
 
-        public EventRegistrationsController(IGameEventRegistrationService service) => _service = service;
+        public EventRegistrationsController(IGameEventRegistrationService service, ILogger<EventRegistrationsController> logger)
+        {
+            _service = service;
+            _logger = logger;
+        }
 
         [HttpGet]
         public async Task<ActionResult<IEnumerable<GameEventRegistrationDto>>> GetAll() =>
@@ -28,12 +33,33 @@ namespace ApexPredatorTrialsAPI.Controllers
         public async Task<ActionResult<GameEventRegistrationDto>> Create(GameEventRegistrationCreateDto dto)
         {
             var result = await _service.CreateAsync(dto);
-            if (result.Status == ServiceStatus.Invalid) return BadRequest(result.Error);
+
+            if (result.Status == ServiceStatus.Invalid)
+            {
+                _logger.LogWarning("Registration rejected: Player ({PlayerId}) for Event ({EventId}): {Reason}",
+                    dto.PlayerId, dto.EventId, result.Error);
+
+                return BadRequest(result.Error);
+            }
+
+            _logger.LogInformation("Player ({PlayerId}) registered for Event ({EventId})", dto.PlayerId, dto.EventId);
+
             return CreatedAtAction(nameof(GetById), new { id = result.Data!.Id }, result.Data);
         }
 
         [HttpDelete("{id}")]
-        public async Task<IActionResult> Delete(int id) =>
-            await _service.DeleteAsync(id) ? NoContent() : NotFound();
+        public async Task<IActionResult> Delete(int id)
+        {
+            if (!await _service.DeleteAsync(id))
+            {
+                _logger.LogWarning("Delete failed: EventRegistration ({RegistrationId}) not found", id);
+
+                return NotFound();
+            }
+
+            _logger.LogInformation("EventRegistration ({RegistrationId}) deleted", id);
+
+            return NoContent();
+        }
     }
 }

@@ -10,8 +10,13 @@ namespace ApexPredatorTrialsAPI.Controllers
     public class MatchResultsController : ControllerBase
     {
         private readonly IMatchResultsService _service;
+        private readonly ILogger<MatchResultsController> _logger;
 
-        public MatchResultsController(IMatchResultsService service) => _service = service;
+        public MatchResultsController(IMatchResultsService service, ILogger<MatchResultsController> logger)
+        {
+            _service = service;
+            _logger = logger;
+        }
 
         [HttpGet]
         public async Task<ActionResult<IEnumerable<MatchResultsDto>>> GetAll() =>
@@ -28,16 +33,37 @@ namespace ApexPredatorTrialsAPI.Controllers
         public async Task<ActionResult<MatchResultsDto>> Create(MatchResultsCreateDto dto)
         {
             var result = await _service.CreateAsync(dto);
-            return result.Status switch
+
+            switch (result.Status)
             {
-                ServiceStatus.NotFound => BadRequest("The referenced Match does not exist."),
-                ServiceStatus.Invalid => BadRequest(result.Error),
-                _ => CreatedAtAction(nameof(GetById), new { id = result.Data!.Id }, result.Data)
-            };
+                case ServiceStatus.NotFound:
+                    _logger.LogWarning("Failed to create match result: referenced match {MatchId} does not exist", dto.MatchId);
+
+                    return BadRequest("The referenced Match does not exist.");
+                case ServiceStatus.Invalid:
+                    _logger.LogWarning("Failed to create match result: {Error}", result.Error);
+
+                    return BadRequest(result.Error);
+                default:
+                    _logger.LogInformation("Created match result {MatchResultId}", result.Data!.Id);
+
+                    return CreatedAtAction(nameof(GetById), new { id = result.Data!.Id }, result.Data);
+            }
         }
 
         [HttpDelete("{id}")]
-        public async Task<IActionResult> Delete(int id) =>
-            await _service.DeleteAsync(id) ? NoContent() : NotFound();
+        public async Task<IActionResult> Delete(int id)
+        {
+            if (!await _service.DeleteAsync(id))
+            {
+                _logger.LogWarning("Delete failed: Match Results ({MatchResultId}) not found", id);
+
+                return NotFound();
+            }
+
+            _logger.LogInformation("Match Results ({MatchResultId}) deleted", id);
+
+            return NoContent();
+        }
     }
 }

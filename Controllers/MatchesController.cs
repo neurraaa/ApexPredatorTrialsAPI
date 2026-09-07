@@ -10,8 +10,13 @@ namespace ApexPredatorTrialsAPI.Controllers
     public class MatchesController : ControllerBase
     {
         private readonly IMatchService _service;
+        private readonly ILogger<MatchesController> _logger;
 
-        public MatchesController(IMatchService service) => _service = service;
+        public MatchesController(IMatchService service, ILogger<MatchesController> logger)
+        {
+            _service = service;
+            _logger = logger;
+        }
 
         [HttpGet]
         public async Task<ActionResult<IEnumerable<MatchDto>>> GetAll() =>
@@ -28,7 +33,16 @@ namespace ApexPredatorTrialsAPI.Controllers
         public async Task<ActionResult<MatchDto>> Create(MatchWriteDto dto)
         {
             var result = await _service.CreateAsync(dto);
-            if (result.Status == ServiceStatus.Invalid) return BadRequest(result.Error);
+
+            if (result.Status == ServiceStatus.Invalid)
+            {
+                _logger.LogWarning("Failed to create match: {Error}", result.Error);
+
+                return BadRequest(result.Error);
+            }
+
+            _logger.LogInformation("Created match {MatchId}", result.Data!.Id);
+
             return CreatedAtAction(nameof(GetById), new { id = result.Data!.Id }, result.Data);
         }
 
@@ -36,16 +50,37 @@ namespace ApexPredatorTrialsAPI.Controllers
         public async Task<IActionResult> Update(int id, MatchWriteDto dto)
         {
             var result = await _service.UpdateAsync(id, dto);
-            return result.Status switch
+
+            switch (result.Status)
             {
-                ServiceStatus.Invalid => BadRequest(result.Error),
-                ServiceStatus.NotFound => NotFound(),
-                _ => NoContent()
-            };
+                case ServiceStatus.Invalid:
+                    _logger.LogWarning("Failed to update match {MatchId}: {Error}", id, result.Error);
+
+                    return BadRequest(result.Error);
+                case ServiceStatus.NotFound:
+                    _logger.LogWarning("Update failed, match {MatchId} not found", id);
+
+                    return NotFound();
+                default:
+                    _logger.LogInformation("Updated match {MatchId}", id);
+
+                    return NoContent();
+            }
         }
 
         [HttpDelete("{id}")]
-        public async Task<IActionResult> Delete(int id) =>
-            await _service.DeleteAsync(id) ? NoContent() : NotFound();
+        public async Task<IActionResult> Delete(int id)
+        {
+            if (!await _service.DeleteAsync(id))
+            {
+                _logger.LogWarning("Delete failed: Match ({MatchId}) not found", id);
+
+                return NotFound();
+            }
+
+            _logger.LogInformation("Match ({MatchId}) deleted", id);
+
+            return NoContent();
+        }
     }
 }

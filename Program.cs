@@ -3,6 +3,7 @@ using ApexPredatorTrialsAPI.Interfaces;
 using ApexPredatorTrialsAPI.Repositories;
 using ApexPredatorTrialsAPI.Services;
 using Microsoft.EntityFrameworkCore;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,6 +14,8 @@ builder.Services.AddControllers();
 builder.Services.AddAutoMapper(cfg => { }, typeof(Program).Assembly);
 
 builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+builder.Host.UseSerilog((context, config) => config.ReadFrom.Configuration(context.Configuration));
 
 // repos
 builder.Services.AddScoped<IPlayerRepository, PlayerRepository>();

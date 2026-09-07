@@ -9,8 +9,13 @@ namespace ApexPredatorTrialsAPI.Controllers
     public class PlayersController : ControllerBase
     {
         private readonly IPlayerService _service;
+        private readonly ILogger<PlayersController> _logger;
 
-        public PlayersController(IPlayerService service) => _service = service;
+        public PlayersController(IPlayerService service, ILogger<PlayersController> logger)
+        {
+            _service = service;
+            _logger = logger;
+        }
 
         [HttpGet]
         public async Task<ActionResult<IEnumerable<PlayerDto>>> GetPlayers() =>
@@ -31,15 +36,40 @@ namespace ApexPredatorTrialsAPI.Controllers
         public async Task<ActionResult<PlayerDto>> CreatePlayer(PlayerWriteDto dto)
         {
             var player = await _service.CreateAsync(dto);
+
+            _logger.LogInformation("Player ({PlayerId}) created ({Name})", player.Id, player.Name);
+
             return CreatedAtAction(nameof(GetPlayer), new { id = player.Id }, player);
         }
 
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdatePlayer(int id, PlayerWriteDto dto) =>
-            await _service.UpdateAsync(id, dto) ? NoContent() : NotFound();
+        public async Task<IActionResult> UpdatePlayer(int id, PlayerWriteDto dto)
+        {
+            if (!await _service.UpdateAsync(id, dto))
+            {
+                _logger.LogWarning("Update failed: Player ({PlayerId}) not found", id);
+
+                return NotFound();
+            }
+
+            _logger.LogInformation("Player ({PlayerId}) updated", id);
+
+            return NoContent();
+        }
 
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeletePlayer(int id) =>
-            await _service.DeleteAsync(id) ? NoContent() : NotFound();
+        public async Task<IActionResult> DeletePlayer(int id)
+        {
+            if (!await _service.DeleteAsync(id))
+            {
+                _logger.LogWarning("Delete failed: Player ({PlayerId}) not found", id);
+
+                return NotFound();
+            }
+
+            _logger.LogInformation("Player ({PlayerId}) deleted", id);
+
+            return NoContent();
+        }
     }
 }

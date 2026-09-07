@@ -10,8 +10,13 @@ namespace ApexPredatorTrialsAPI.Controllers
     public class UsersController : ControllerBase
     {
         private readonly IUserService _service;
+        private readonly ILogger<UsersController> _logger;
 
-        public UsersController(IUserService service) => _service = service;
+        public UsersController(IUserService service, ILogger<UsersController> logger)
+        {
+            _service = service;
+            _logger = logger;
+        }
 
         [HttpGet]
         public async Task<ActionResult<IEnumerable<UserDto>>> GetUsers() =>
@@ -28,12 +33,31 @@ namespace ApexPredatorTrialsAPI.Controllers
         public async Task<ActionResult<UserDto>> Register(UserRegisterDto dto)
         {
             var result = await _service.RegisterAsync(dto);
-            if (result.Status == ServiceStatus.Invalid) return BadRequest(result.Error);
+            if (result.Status == ServiceStatus.Invalid)
+            {
+                _logger.LogWarning("Registration rejected for {Username}: {Reason}", dto.Username, result.Error);
+
+                return BadRequest(result.Error);
+            }
+
+            _logger.LogInformation("User ({UserId}) registered as {Username}", result.Data!.Id, result.Data.Username);
+
             return CreatedAtAction(nameof(GetUser), new { id = result.Data!.Id }, result.Data);
         }
 
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteUser(int id) =>
-            await _service.DeleteAsync(id) ? NoContent() : NotFound();
+        public async Task<IActionResult> DeleteUser(int id)
+        {
+            if (!await _service.DeleteAsync(id))
+            {
+                _logger.LogWarning("Delete failed: User ({UserId}) not found", id);
+
+                return NotFound();
+            }
+
+            _logger.LogInformation("User ({UserId}) deleted", id);
+
+            return NoContent();
+        }
     }
 }
