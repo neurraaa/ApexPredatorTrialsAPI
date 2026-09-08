@@ -1,5 +1,6 @@
 using ApexPredatorTrialsAPI.Data;
 using ApexPredatorTrialsAPI.Interfaces;
+using ApexPredatorTrialsAPI.Middleware;
 using ApexPredatorTrialsAPI.Repositories;
 using ApexPredatorTrialsAPI.Services;
 using Microsoft.EntityFrameworkCore;
@@ -41,8 +42,14 @@ builder.Services.AddScoped<IUserService, UserService>();
 
 var app = builder.Build();
 
+app.UseSerilogRequestLogging();
+
 app.UseSwagger();
 app.UseSwaggerUI();
+
+app.UseMiddleware<IpHandlerMiddleware>();
+app.UseMiddleware<RateLimiterMiddleware>();
+app.UseMiddleware<TimingMiddleware>();
 
 app.MapControllers();
 

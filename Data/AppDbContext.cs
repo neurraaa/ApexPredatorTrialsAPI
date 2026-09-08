@@ -16,6 +16,8 @@ namespace ApexPredatorTrialsAPI.Data
         public DbSet<GameEvent> Events { get; set; }
         public DbSet<GameEventRegistration> EventRegistrations { get; set; }
         public DbSet<GameEventSchedule> Schedules { get; set; }
+        public DbSet<Log> Logs { get; set; }
+        public DbSet<IpAddress> IpAddresses { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -102,6 +104,12 @@ namespace ApexPredatorTrialsAPI.Data
                 .WithMany(s => s.PreviousSchedules)
                 .HasForeignKey(s => s.NextScheduleId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Log>()
+                .HasIndex(l => new { l.ClientAddress, l.Timestamp });
+
+            modelBuilder.Entity<IpAddress>()
+                .HasKey(i => i.Address);
         }
     }
 }
