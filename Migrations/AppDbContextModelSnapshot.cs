@@ -131,6 +131,51 @@ namespace ApexPredatorTrialsAPI.Migrations
                     b.ToTable("Maps");
                 });
 
+            modelBuilder.Entity("ApexPredatorTrialsAPI.Models.IpAddress", b =>
+                {
+                    b.Property<string>("Address")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<bool>("IsBlocked")
+                        .HasColumnType("bit");
+
+                    b.HasKey("Address");
+
+                    b.ToTable("IpAddresses");
+                });
+
+            modelBuilder.Entity("ApexPredatorTrialsAPI.Models.Log", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ClientAddress")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<double>("Duration")
+                        .HasColumnType("float");
+
+                    b.Property<string>("Method")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Path")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("Timestamp")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClientAddress", "Timestamp");
+
+                    b.ToTable("Logs");
+                });
+
             modelBuilder.Entity("ApexPredatorTrialsAPI.Models.Match", b =>
                 {
                     b.Property<int>("Id")

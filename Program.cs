@@ -39,6 +39,7 @@ builder.Services.AddScoped<IGameEventService, GameEventService>();
 builder.Services.AddScoped<IGameEventRegistrationService, GameEventRegistrationService>();
 builder.Services.AddScoped<IGameEventScheduleService, GameEventScheduleService>();
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IIpAddress, IpAddressService>();
 
 var app = builder.Build();
 
