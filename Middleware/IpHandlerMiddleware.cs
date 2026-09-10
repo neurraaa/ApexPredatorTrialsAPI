@@ -44,7 +44,10 @@ namespace ApexPredatorTrialsAPI.Middleware
             {
                 _logger.LogError(ex, "IpHandlerMiddleware: unexpected error for {ClientAddress}", clientAddress);
 
-                context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+                if (!context.Response.HasStarted)
+                {
+                    context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+                }
             }
         }
     }
