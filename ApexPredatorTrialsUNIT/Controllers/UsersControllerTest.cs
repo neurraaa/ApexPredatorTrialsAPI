@@ -18,7 +18,7 @@ namespace ApexPredatorTrialsUNIT.Controllers
         [Fact]
         public async Task GetUsers_ReturnsOkWithList()
         {
-            var users = new List<UserDto> { new() { Id = 1, Username = "neurraaa" } };
+            var users = new List<UserDto> { new() { Id = 1, Username = "alice" } };
             _serviceMock.Setup(s => s.GetAllAsync()).ReturnsAsync(users);
 
             var result = await _controller.GetUsers();
@@ -38,34 +38,9 @@ namespace ApexPredatorTrialsUNIT.Controllers
         }
 
         [Fact]
-        public async Task Register_NewUsername_ReturnsCreatedAtAction()
-        {
-            var dto = new UserRegisterDto { Username = "neurraaa", Password = "aaarruen" };
-            var created = new UserDto { Id = 1, Username = "neurraaa", Role = "admin" };
-            _serviceMock.Setup(s => s.RegisterAsync(dto)).ReturnsAsync(ServiceResult<UserDto>.Ok(created));
-
-            var result = await _controller.Register(dto);
-
-            var createdResult = Assert.IsType<CreatedAtActionResult>(result.Result);
-            Assert.Equal(created, createdResult.Value);
-        }
-
-        [Fact]
-        public async Task Register_DuplicateUsername_ReturnsBadRequest()
-        {
-            var dto = new UserRegisterDto { Username = "neurraaa", Password = "aaarruen" };
-            _serviceMock.Setup(s => s.RegisterAsync(dto))
-                .ReturnsAsync(ServiceResult<UserDto>.Invalid("Username is already taken."));
-
-            var result = await _controller.Register(dto);
-
-            Assert.IsType<BadRequestObjectResult>(result.Result);
-        }
-
-        [Fact]
         public async Task DeleteUser_Existing_ReturnsNoContent()
         {
-            _serviceMock.Setup(s => s.DeleteAsync(1)).ReturnsAsync(true);
+            _serviceMock.Setup(s => s.DeleteAsync(1)).ReturnsAsync(ServiceResult<bool>.Ok(true));
 
             var result = await _controller.DeleteUser(1);
 
@@ -75,11 +50,22 @@ namespace ApexPredatorTrialsUNIT.Controllers
         [Fact]
         public async Task DeleteUser_Missing_ReturnsNotFound()
         {
-            _serviceMock.Setup(s => s.DeleteAsync(99)).ReturnsAsync(false);
+            _serviceMock.Setup(s => s.DeleteAsync(99)).ReturnsAsync(ServiceResult<bool>.NotFound());
 
             var result = await _controller.DeleteUser(99);
 
             Assert.IsType<NotFoundResult>(result);
+        }
+
+        [Fact]
+        public async Task DeleteUser_LastAdmin_ReturnsConflict()
+        {
+            _serviceMock.Setup(s => s.DeleteAsync(1))
+                .ReturnsAsync(ServiceResult<bool>.Invalid("The last administrator cannot be deleted."));
+
+            var result = await _controller.DeleteUser(1);
+
+            Assert.IsType<ConflictObjectResult>(result);
         }
     }
 }

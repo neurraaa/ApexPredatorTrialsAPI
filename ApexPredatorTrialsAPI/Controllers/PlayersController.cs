@@ -1,11 +1,13 @@
 ﻿using ApexPredatorTrialsAPI.DTOs;
 using ApexPredatorTrialsAPI.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ApexPredatorTrialsAPI.Controllers
 {
-    [Route("api/players")]
     [ApiController]
+    [Route("api/players")]
+    [Authorize]
     public class PlayersController : ControllerBase
     {
         private readonly IPlayerService _service;
@@ -33,6 +35,7 @@ namespace ApexPredatorTrialsAPI.Controllers
             Ok(await _service.GetByRegionAsync(region));
 
         [HttpPost]
+        [Authorize(Roles = "Admin")]
         public async Task<ActionResult<PlayerDto>> CreatePlayer(PlayerWriteDto dto)
         {
             var player = await _service.CreateAsync(dto);
@@ -43,6 +46,7 @@ namespace ApexPredatorTrialsAPI.Controllers
         }
 
         [HttpPut("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> UpdatePlayer(int id, PlayerWriteDto dto)
         {
             if (!await _service.UpdateAsync(id, dto))
@@ -58,6 +62,7 @@ namespace ApexPredatorTrialsAPI.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> DeletePlayer(int id)
         {
             if (!await _service.DeleteAsync(id))

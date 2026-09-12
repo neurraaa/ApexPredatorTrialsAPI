@@ -7,7 +7,6 @@ namespace ApexPredatorTrialsAPI.Interfaces
     {
         Task<List<UserDto>> GetAllAsync();
         Task<UserDto?> GetByIdAsync(int id);
-        Task<ServiceResult<UserDto>> RegisterAsync(UserRegisterDto dto);
-        Task<bool> DeleteAsync(int id);
+        Task<ServiceResult<bool>> DeleteAsync(int id);
     }
 }

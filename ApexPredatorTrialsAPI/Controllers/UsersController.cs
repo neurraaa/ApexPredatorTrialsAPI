@@ -1,12 +1,14 @@
 ﻿using ApexPredatorTrialsAPI.DTOs;
 using ApexPredatorTrialsAPI.Interfaces;
 using ApexPredatorTrialsAPI.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ApexPredatorTrialsAPI.Controllers
 {
-    [Route("api/users")]
     [ApiController]
+    [Route("api/users")]
+    [Authorize(Roles = "Admin")]
     public class UsersController : ControllerBase
     {
         private readonly IUserService _service;
@@ -29,34 +31,22 @@ namespace ApexPredatorTrialsAPI.Controllers
             return user is null ? NotFound() : Ok(user);
         }
 
-        [HttpPost("register")]
-        public async Task<ActionResult<UserDto>> Register(UserRegisterDto dto)
-        {
-            var result = await _service.RegisterAsync(dto);
-            if (result.Status == ServiceStatus.Invalid)
-            {
-                _logger.LogWarning("Registration rejected for {Username}: {Reason}", dto.Username, result.Error);
-
-                return BadRequest(result.Error);
-            }
-
-            _logger.LogInformation("User ({UserId}) registered as {Username}", result.Data!.Id, result.Data.Username);
-
-            return CreatedAtAction(nameof(GetUser), new { id = result.Data!.Id }, result.Data);
-        }
-
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteUser(int id)
         {
-            if (!await _service.DeleteAsync(id))
+            var result = await _service.DeleteAsync(id);
+
+            return result.Status switch
             {
-                _logger.LogWarning("Delete failed: User ({UserId}) not found", id);
+                ServiceStatus.NotFound => NotFound(),
+                ServiceStatus.Invalid => Conflict(result.Error),
+                _ => LogAndNoContent(id)
+            };
+        }
 
-                return NotFound();
-            }
-
-            _logger.LogInformation("User ({UserId}) deleted", id);
-
+        private IActionResult LogAndNoContent(int id)
+        {
+            _logger.LogInformation("User {UserId} deleted", id);
             return NoContent();
         }
     }

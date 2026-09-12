@@ -1,12 +1,14 @@
 ﻿using ApexPredatorTrialsAPI.DTOs;
-using ApexPredatorTrialsAPI.Services;
 using ApexPredatorTrialsAPI.Interfaces;
+using ApexPredatorTrialsAPI.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ApexPredatorTrialsAPI.Controllers
 {
     [ApiController]
     [Route("api/event-registrations")]
+    [Authorize]
     public class EventRegistrationsController : ControllerBase
     {
         private readonly IGameEventRegistrationService _service;
@@ -19,10 +21,12 @@ namespace ApexPredatorTrialsAPI.Controllers
         }
 
         [HttpGet]
+        [AllowAnonymous]
         public async Task<ActionResult<IEnumerable<GameEventRegistrationDto>>> GetAll() =>
             Ok(await _service.GetAllAsync());
 
         [HttpGet("{id}")]
+        [AllowAnonymous]
         public async Task<ActionResult<GameEventRegistrationDto>> GetById(int id)
         {
             var reg = await _service.GetByIdAsync(id);
@@ -48,6 +52,7 @@ namespace ApexPredatorTrialsAPI.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Delete(int id)
         {
             if (!await _service.DeleteAsync(id))

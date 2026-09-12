@@ -1,13 +1,11 @@
 ﻿using ApexPredatorTrialsAPI.DTOs;
+using ApexPredatorTrialsAPI.Services;
 
 namespace ApexPredatorTrialsAPI.Interfaces
 {
     public interface IAuthService
     {
-        Task<AuthResponseDto> RegisterAsync(UserRegisterDto dto);
-        Task<AuthResponseDto> LoginAsync(UserLoginDto dto);
-        Task<IEnumerable<UserDto>> GetAllUsersAsync();
-        Task<UserDto?> GetUserByIdAsync(int id);
-        Task<bool> DeleteUserAsync(int id);
+        Task<ServiceResult<AuthResponseDto>> RegisterAsync(UserRegisterDto dto);
+        Task<ServiceResult<AuthResponseDto>> LoginAsync(UserLoginDto dto);
     }
 }

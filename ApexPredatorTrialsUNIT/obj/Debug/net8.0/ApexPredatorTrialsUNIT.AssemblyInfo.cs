@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("ApexPredatorTrialsUNIT")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+3e1cabaf8da4df3967e4e3d84839b6dd10e85611")]
 [assembly: System.Reflection.AssemblyProductAttribute("ApexPredatorTrialsUNIT")]
 [assembly: System.Reflection.AssemblyTitleAttribute("ApexPredatorTrialsUNIT")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

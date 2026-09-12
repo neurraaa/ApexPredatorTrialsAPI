@@ -1,5 +1,4 @@
 ﻿using ApexPredatorTrialsAPI.DTOs;
-using ApexPredatorTrialsAPI.Models;
 using ApexPredatorTrialsAPI.Interfaces;
 using AutoMapper;
 
@@ -25,29 +24,21 @@ namespace ApexPredatorTrialsAPI.Services
             return user is null ? null : _mapper.Map<UserDto>(user);
         }
 
-        public async Task<ServiceResult<UserDto>> RegisterAsync(UserRegisterDto dto)
-        {
-            if (await _repository.UsernameExistsAsync(dto.Username))
-                return ServiceResult<UserDto>.Invalid("Username is already taken.");
-
-            var user = _mapper.Map<User>(dto);
-            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
-            user.Role = "user";
-
-            await _repository.AddAsync(user);
-            await _repository.SaveChangesAsync();
-
-            return ServiceResult<UserDto>.Ok(_mapper.Map<UserDto>(user));
-        }
-
-        public async Task<bool> DeleteAsync(int id)
+        public async Task<ServiceResult<bool>> DeleteAsync(int id)
         {
             var user = await _repository.GetByIdAsync(id);
-            if (user is null) return false;
+            if (user is null) return ServiceResult<bool>.NotFound();
+
+            if (user.Role.Equals("Admin", StringComparison.OrdinalIgnoreCase))
+            {
+                var adminCount = await _repository.CountByRoleAsync("Admin");
+                if (adminCount <= 1)
+                    return ServiceResult<bool>.Invalid("The last administrator cannot be deleted.");
+            }
 
             _repository.Delete(user);
             await _repository.SaveChangesAsync();
-            return true;
+            return ServiceResult<bool>.Ok(true);
         }
     }
 }

@@ -1,21 +1,22 @@
-﻿using ApexPredatorTrialsAPI.Models;
-using ApexPredatorTrialsAPI.Data;
+﻿using ApexPredatorTrialsAPI.Data;
+using ApexPredatorTrialsAPI.Interfaces;
+using ApexPredatorTrialsAPI.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace ApexPredatorTrialsAPI.Services
 {
     public class AdminBootstrapService
     {
-        private readonly AppDbContext _context;
+        private readonly IUserRepository _repository;
         private readonly IConfiguration _configuration;
         private readonly ILogger<AdminBootstrapService> _logger;
 
         public AdminBootstrapService(
-            AppDbContext context,
+            IUserRepository repository,
             IConfiguration configuration,
             ILogger<AdminBootstrapService> logger)
         {
-            _context = context;
+            _repository = repository;
             _configuration = configuration;
             _logger = logger;
         }
@@ -32,20 +33,14 @@ namespace ApexPredatorTrialsAPI.Services
             }
 
             if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
-            {
-                throw new InvalidOperationException(
-                    "Admin bootstrap requires both AdminBootstrap__Username and AdminBootstrap__Password.");
-            }
+                throw new InvalidOperationException("Admin bootstrap requires both AdminBootstrap:Username and AdminBootstrap:Password.");
 
             if (password.Length < 8)
-            {
                 throw new InvalidOperationException("Admin bootstrap password must contain at least 8 characters.");
-            }
 
-            var existingUser = await _context.Users
-                .FirstOrDefaultAsync(user => user.Username == username, cancellationToken);
+            var existingUser = await _repository.GetByUsernameAsync(username);
 
-            if (existingUser != null)
+            if (existingUser is not null)
             {
                 var changed = false;
                 if (!existingUser.Role.Equals("Admin", StringComparison.OrdinalIgnoreCase))
@@ -62,22 +57,24 @@ namespace ApexPredatorTrialsAPI.Services
 
                 if (changed)
                 {
-                    await _context.SaveChangesAsync(cancellationToken);
-                    _logger.LogInformation("Synchronized the configured bootstrap admin account {Username}.", username);
+                    _repository.Update(existingUser);
+                    await _repository.SaveChangesAsync();
+                    _logger.LogInformation("Synchronized the configured bootstrap admin account {Username}", username);
                 }
 
                 return;
             }
 
-            _context.Users.Add(new User
+            var admin = new User
             {
-                Username = string.IsNullOrWhiteSpace(username) ? "Administrator" : username,
+                Username = username,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
-                Role = "Admin",
-            });
+                Role = "Admin"
+            };
 
-            await _context.SaveChangesAsync(cancellationToken);
-            _logger.LogInformation("Created the configured bootstrap admin account {Username}.", username);
+            await _repository.AddAsync(admin);
+            await _repository.SaveChangesAsync();
+            _logger.LogInformation("Created the configured bootstrap admin account {Username}", username);
         }
     }
 }
