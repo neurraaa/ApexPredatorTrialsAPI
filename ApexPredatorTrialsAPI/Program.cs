@@ -78,6 +78,15 @@ builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<AdminBootstrapService>();
 
+// cors
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+        policy.WithOrigins("http://127.0.0.1:5500", "http://localhost:5500")
+              .AllowAnyHeader()
+              .AllowAnyMethod());
+});
+
 var app = builder.Build();
 
 app.UseSerilogRequestLogging();
@@ -91,6 +100,8 @@ if (app.Environment.IsDevelopment())
 app.UseMiddleware<IpHandlerMiddleware>();
 app.UseMiddleware<RateLimiterMiddleware>();
 app.UseMiddleware<TimingMiddleware>();
+
+app.UseCors("AllowFrontend");
 
 app.UseAuthentication();
 app.UseAuthorization();
