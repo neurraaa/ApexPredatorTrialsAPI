@@ -97,11 +97,11 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.UseCors("AllowFrontend");
+
 app.UseMiddleware<IpHandlerMiddleware>();
 app.UseMiddleware<RateLimiterMiddleware>();
 app.UseMiddleware<TimingMiddleware>();
-
-app.UseCors("AllowFrontend");
 
 app.UseAuthentication();
 app.UseAuthorization();

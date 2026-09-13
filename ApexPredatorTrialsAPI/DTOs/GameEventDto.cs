@@ -17,6 +17,5 @@ namespace ApexPredatorTrialsAPI.DTOs
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
         [Required] public string Region { get; set; } = string.Empty;
-        public int OrganizerId { get; set; }
     }
 }

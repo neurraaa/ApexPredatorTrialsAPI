@@ -35,7 +35,9 @@ namespace ApexPredatorTrialsAPI.Mappings
             CreateMap<MatchWriteDto, Match>();
 
             CreateMap<GameEventSchedule, GameEventScheduleDto>()
+                .ForMember(dest => dest.HunterPlayerId, opt => opt.MapFrom(src => src.Match != null ? src.Match.HunterPlayerId : (int?)null))
                 .ForMember(dest => dest.HunterPlayerName, opt => opt.MapFrom(src => src.Match != null ? src.Match.HunterPlayer.Name : null))
+                .ForMember(dest => dest.HumanPlayerId, opt => opt.MapFrom(src => src.Match != null ? src.Match.HumanPlayerId : (int?)null))
                 .ForMember(dest => dest.HumanPlayerName, opt => opt.MapFrom(src => src.Match != null ? src.Match.HumanPlayer.Name : null));
             CreateMap<GameEventScheduleWriteDto, GameEventSchedule>();
 

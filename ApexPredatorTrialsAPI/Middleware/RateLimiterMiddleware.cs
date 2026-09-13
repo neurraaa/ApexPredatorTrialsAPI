@@ -25,13 +25,16 @@ namespace ApexPredatorTrialsAPI.Middleware
                 .Where(l => l.ClientAddress == clientAddress && l.Timestamp > windowStart)
                 .CountAsync();
 
-            if (requestCount >= 5)
+            if (requestCount >= 100)
             {
                 _logger.LogWarning("Rate limit exceeded for {ClientAddress} ({RequestCount} requests)", clientAddress, requestCount);
 
+                httpContext.Response.Headers.Append("Access-Control-Allow-Origin", "http://127.0.0.1:5500");
                 httpContext.Response.StatusCode = (int)HttpStatusCode.TooManyRequests;
                 httpContext.Response.ContentType = "text/plain";
+
                 await httpContext.Response.WriteAsync("Rate limit exceeded");
+
                 return;
             }
 

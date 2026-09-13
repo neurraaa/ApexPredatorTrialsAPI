@@ -30,9 +30,10 @@ namespace ApexPredatorTrialsAPI.Services
         public async Task<List<GameEventScheduleDto>> GetBracketAsync(int eventId) =>
             _mapper.Map<List<GameEventScheduleDto>>(await _scheduleRepository.GetByEventIdAsync(eventId));
 
-        public async Task<GameEventDto> CreateAsync(GameEventWriteDto dto)
+        public async Task<GameEventDto> CreateAsync(GameEventWriteDto dto, int organizerId)
         {
             var ev = _mapper.Map<GameEvent>(dto);
+            ev.OrganizerId = organizerId;
             await _repository.AddAsync(ev);
             await _repository.SaveChangesAsync();
             return _mapper.Map<GameEventDto>(ev);
