@@ -22,9 +22,11 @@ namespace ApexPredatorTrialsAPI.Data
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Player>()
-                .HasOne(p => p.User)
-                .WithOne(u => u.Player)
-                .HasForeignKey<Player>(p => p.UserId);
+            .HasOne(p => p.User)
+            .WithOne(u => u.Player)
+            .HasForeignKey<Player>(p => p.UserId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.SetNull);
 
             modelBuilder.Entity<Player>()
                 .HasOne(p => p.PlayerStats)
@@ -51,6 +53,7 @@ namespace ApexPredatorTrialsAPI.Data
                 .HasOne(m => m.Event)
                 .WithMany(e => e.Matches)
                 .HasForeignKey(m => m.EventId)
+                .IsRequired(false)
                 .OnDelete(DeleteBehavior.SetNull);
 
             modelBuilder.Entity<Match>()

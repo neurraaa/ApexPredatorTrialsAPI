@@ -10,10 +10,14 @@ namespace ApexPredatorTrialsAPI.Mappings
         {
             CreateMap<Player, PlayerDto>();
             CreateMap<PlayerWriteDto, Player>();
+            CreateMap<Player, PlayerDetailDto>()
+                .ForMember(dest => dest.Username, opt => opt.MapFrom(src => src.User != null ? src.User.Username : null))
+                .ForMember(dest => dest.Stats, opt => opt.MapFrom(src => src.PlayerStats));
 
             CreateMap<User, UserDto>();
             CreateMap<UserRegisterDto, User>()
-                .ForMember(dest => dest.PasswordHash, opt => opt.Ignore()); // hashed explicitly in controller
+                .ForMember(dest => dest.PasswordHash, opt => opt.Ignore())
+                .ForMember(dest => dest.Role, opt => opt.Ignore());
 
             CreateMap<PlayerStats, PlayerStatsDto>();
             CreateMap<PlayerStatsWriteDto, PlayerStats>();
@@ -27,11 +31,13 @@ namespace ApexPredatorTrialsAPI.Mappings
             CreateMap<GameEventRegistration, GameEventRegistrationDto>();
             CreateMap<GameEventRegistrationCreateDto, GameEventRegistration>();
 
-            CreateMap<GameEventSchedule, GameEventScheduleDto>();
-            CreateMap<GameEventScheduleWriteDto, GameEventSchedule>();
-
             CreateMap<Match, MatchDto>();
             CreateMap<MatchWriteDto, Match>();
+
+            CreateMap<GameEventSchedule, GameEventScheduleDto>()
+                .ForMember(dest => dest.HunterPlayerName, opt => opt.MapFrom(src => src.Match != null ? src.Match.HunterPlayer.Name : null))
+                .ForMember(dest => dest.HumanPlayerName, opt => opt.MapFrom(src => src.Match != null ? src.Match.HumanPlayer.Name : null));
+            CreateMap<GameEventScheduleWriteDto, GameEventSchedule>();
 
             CreateMap<MatchResults, MatchResultsDto>();
             CreateMap<MatchResultsCreateDto, MatchResults>();

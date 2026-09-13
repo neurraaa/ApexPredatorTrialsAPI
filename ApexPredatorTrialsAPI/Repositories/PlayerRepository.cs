@@ -15,6 +15,12 @@ namespace ApexPredatorTrialsAPI.Repositories
         public async Task<Player?> GetByIdWithStatsAsync(int id) =>
             await DbSet.Include(p => p.PlayerStats).FirstOrDefaultAsync(p => p.Id == id);
 
+        public async Task<Player?> GetByIdWithDetailsAsync(int id) =>
+            await DbSet.Include(p => p.PlayerStats).Include(p => p.User).FirstOrDefaultAsync(p => p.Id == id);
+
+        public async Task<Player?> GetByUserIdAsync(int userId) =>
+            await DbSet.FirstOrDefaultAsync(p => p.UserId == userId);
+
         public async Task<List<Player>> GetByRegionAsync(string region) =>
             await DbSet.Where(p => p.Region.ToUpper() == region.ToUpper()).ToListAsync();
     }

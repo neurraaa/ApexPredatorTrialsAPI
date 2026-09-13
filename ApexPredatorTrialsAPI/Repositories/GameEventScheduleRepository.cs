@@ -10,7 +10,10 @@ namespace ApexPredatorTrialsAPI.Repositories
         public GameEventScheduleRepository(AppDbContext context) : base(context) { }
 
         public async Task<List<GameEventSchedule>> GetByEventIdAsync(int eventId) =>
-            await DbSet.Where(s => s.EventId == eventId).Include(s => s.Match).ToListAsync();
+            await DbSet.Where(s => s.EventId == eventId)
+                .Include(s => s.Match).ThenInclude(m => m!.HunterPlayer)
+                .Include(s => s.Match).ThenInclude(m => m!.HumanPlayer)
+                .ToListAsync();
 
         public async Task<GameEventSchedule?> GetByIdWithMatchAsync(int id) =>
             await DbSet.Include(s => s.Match).FirstOrDefaultAsync(s => s.Id == id);

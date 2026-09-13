@@ -25,6 +25,18 @@ namespace ApexPredatorTrialsAPI.Services
             return player is null ? null : _mapper.Map<PlayerDto>(player);
         }
 
+        public async Task<PlayerDetailDto?> GetDetailByIdAsync(int id)
+        {
+            var player = await _repository.GetByIdWithDetailsAsync(id);
+            return player is null ? null : _mapper.Map<PlayerDetailDto>(player);
+        }
+
+        public async Task<PlayerDto?> GetByUserIdAsync(int userId)
+        {
+            var player = await _repository.GetByUserIdAsync(userId);
+            return player is null ? null : _mapper.Map<PlayerDto>(player);
+        }
+
         public async Task<List<PlayerDto>> GetByRegionAsync(string region) =>
             _mapper.Map<List<PlayerDto>>(await _repository.GetByRegionAsync(region));
 
