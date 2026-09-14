@@ -128,6 +128,42 @@ namespace ApexPredatorTrialsUNIT.Controllers
         }
 
         [Fact]
+        public async Task Conclude_Valid_ReturnsOk()
+        {
+            var dto = new ConcludeEventDto { WinnerPlayerId = 2 };
+            var finalSlot = new GameEventScheduleDto { Id = 3, EventId = 5, Round = "Final", WinnerPlayerId = 2 };
+            _serviceMock.Setup(s => s.ConcludeAsync(5, dto)).ReturnsAsync(ServiceResult<GameEventScheduleDto>.Ok(finalSlot));
+
+            var result = await _controller.Conclude(5, dto);
+
+            var ok = Assert.IsType<OkObjectResult>(result.Result);
+            Assert.Equal(finalSlot, ok.Value);
+        }
+
+        [Fact]
+        public async Task Conclude_Missing_ReturnsNotFound()
+        {
+            var dto = new ConcludeEventDto { WinnerPlayerId = 2 };
+            _serviceMock.Setup(s => s.ConcludeAsync(99, dto)).ReturnsAsync(ServiceResult<GameEventScheduleDto>.NotFound());
+
+            var result = await _controller.Conclude(99, dto);
+
+            Assert.IsType<NotFoundResult>(result.Result);
+        }
+
+        [Fact]
+        public async Task Conclude_NotAtFinal_ReturnsBadRequest()
+        {
+            var dto = new ConcludeEventDto { WinnerPlayerId = 2 };
+            _serviceMock.Setup(s => s.ConcludeAsync(5, dto))
+                .ReturnsAsync(ServiceResult<GameEventScheduleDto>.Invalid("The event must reach the Final round before it can be concluded."));
+
+            var result = await _controller.Conclude(5, dto);
+
+            Assert.IsType<BadRequestObjectResult>(result.Result);
+        }
+
+        [Fact]
         public async Task Update_Missing_ReturnsNotFound()
         {
             var dto = new GameEventWriteDto { Title = "Hunter Protocol", Region = "EU" };

@@ -10,6 +10,15 @@ const eventId = getEventIdFromUrl();
 let currentEvent = null;
 let currentBracket = [];
 
+function getFinalSlot() {
+  return currentBracket.find((s) => s.round === 'Final');
+}
+
+function championName(finalSlot) {
+  if (!finalSlot || !finalSlot.winnerPlayerId) return null;
+  return finalSlot.winnerPlayerId === finalSlot.hunterPlayerId ? finalSlot.hunterPlayerName : finalSlot.humanPlayerName;
+}
+
 function renderBracket(bracket) {
   const container = document.getElementById('bracket-container');
   container.innerHTML = '';
@@ -81,9 +90,80 @@ function renderEditEventForm() {
   });
 }
 
+function renderConcludeSection(section) {
+  const finalSlot = getFinalSlot();
+  if (!finalSlot) {
+    section.innerHTML = '<p>No Final matchup exists yet.</p>';
+    return;
+  }
+
+  const champion = championName(finalSlot);
+  if (champion) {
+    section.innerHTML = `<h3>Event concluded</h3><p>&#127942; Champion: <strong>${champion}</strong></p>`;
+    return;
+  }
+
+  const heading = document.createElement('h3');
+  heading.textContent = 'Declare Final winner';
+  section.appendChild(heading);
+
+  const form = document.createElement('form');
+  form.id = 'conclude-form';
+
+  const fieldset = document.createElement('fieldset');
+  const legend = document.createElement('legend');
+  legend.innerHTML = matchupLabel(finalSlot);
+  fieldset.appendChild(legend);
+
+  [['hunter', finalSlot.hunterPlayerId, finalSlot.hunterPlayerName], ['human', finalSlot.humanPlayerId, finalSlot.humanPlayerName]].forEach(([side, playerId, playerName]) => {
+    const label = document.createElement('label');
+    const radio = document.createElement('input');
+    radio.type = 'radio';
+    radio.name = 'final-winner';
+    radio.value = String(playerId);
+    radio.required = true;
+    radio.disabled = !playerId;
+    label.appendChild(radio);
+    label.append(` ${playerName || 'TBD'} (${side})`);
+    fieldset.appendChild(label);
+  });
+  form.appendChild(fieldset);
+
+  const submitBtn = document.createElement('button');
+  submitBtn.type = 'submit';
+  submitBtn.textContent = 'Conclude event';
+  form.appendChild(submitBtn);
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const selected = form.querySelector('input[name="final-winner"]:checked');
+    if (!selected) {
+      showOutput({ error: 'Select the Final winner before concluding.' });
+      return;
+    }
+    try {
+      await apiFetch(`/events/${eventId}/conclude`, {
+        method: 'POST',
+        body: JSON.stringify({ winnerPlayerId: Number(selected.value) })
+      });
+      showOutput({ message: 'Event concluded.' });
+      loadEvent();
+    } catch (err) {
+      showOutput({ error: err.message });
+    }
+  });
+
+  section.appendChild(form);
+}
+
 function renderAdvancePhaseSection() {
   const section = document.getElementById('advance-phase-section');
   section.innerHTML = '';
+
+  if (currentEvent.currentRound === 'Final') {
+    renderConcludeSection(section);
+    return;
+  }
 
   const nextRoundIndex = ROUND_ORDER.indexOf(currentEvent.currentRound) + 1;
   if (nextRoundIndex >= ROUND_ORDER.length || nextRoundIndex <= 0) {
@@ -230,14 +310,17 @@ async function loadEvent() {
   try {
     currentEvent = await apiFetch(`/events/${eventId}`);
     document.getElementById('event-title').textContent = currentEvent.title;
+
+    currentBracket = await apiFetch(`/events/${eventId}/bracket`);
+    renderBracket(currentBracket);
+
+    const champion = championName(getFinalSlot());
     document.getElementById('event-summary').innerHTML = `
       <p><strong>Region:</strong> ${currentEvent.region}</p>
       <p><strong>Dates:</strong> ${currentEvent.startDate} - ${currentEvent.endDate}</p>
       <p><strong>Current round:</strong> ${currentEvent.currentRound}</p>
+      ${champion ? `<p><strong>&#127942; Champion:</strong> ${champion}</p>` : ''}
     `;
-
-    currentBracket = await apiFetch(`/events/${eventId}/bracket`);
-    renderBracket(currentBracket);
 
     if (isAdmin()) renderAdminPanel();
   } catch (err) {

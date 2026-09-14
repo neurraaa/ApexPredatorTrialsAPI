@@ -201,6 +201,28 @@ namespace ApexPredatorTrialsAPI.Services
             return ServiceResult<GameEventDto>.Ok(_mapper.Map<GameEventDto>(ev));
         }
 
+        public async Task<ServiceResult<GameEventScheduleDto>> ConcludeAsync(int eventId, ConcludeEventDto dto)
+        {
+            var ev = await _repository.GetByIdAsync(eventId);
+            if (ev is null) return ServiceResult<GameEventScheduleDto>.NotFound();
+
+            if (ev.CurrentRound != "Final")
+                return ServiceResult<GameEventScheduleDto>.Invalid("The event must reach the Final round before it can be concluded.");
+
+            var finalSlots = await _scheduleRepository.GetByEventIdAndRoundAsync(eventId, "Final");
+            if (finalSlots.Count != 1)
+                return ServiceResult<GameEventScheduleDto>.Invalid("The Final round does not have exactly one matchup.");
+
+            var finalSlot = finalSlots[0];
+            if (dto.WinnerPlayerId != finalSlot.HunterPlayerId && dto.WinnerPlayerId != finalSlot.HumanPlayerId)
+                return ServiceResult<GameEventScheduleDto>.Invalid("The declared champion must be one of the two Final competitors.");
+
+            finalSlot.WinnerPlayerId = dto.WinnerPlayerId;
+            await _scheduleRepository.SaveChangesAsync();
+
+            return ServiceResult<GameEventScheduleDto>.Ok(_mapper.Map<GameEventScheduleDto>(finalSlot));
+        }
+
         private async Task<(Player? ExistingPlayer, string? Error)> ValidateEntryAsync(EventPlayerEntryDto entry)
         {
             if (entry.PlayerId is not null)

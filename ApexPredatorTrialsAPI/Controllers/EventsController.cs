@@ -118,5 +118,28 @@ namespace ApexPredatorTrialsAPI.Controllers
                     return Ok(result.Data);
             }
         }
+
+        [HttpPost("{id}/conclude")]
+        [Authorize(Roles = "Admin")]
+        public async Task<ActionResult<GameEventScheduleDto>> Conclude(int id, ConcludeEventDto dto)
+        {
+            var result = await _service.ConcludeAsync(id, dto);
+
+            switch (result.Status)
+            {
+                case ServiceStatus.NotFound:
+                    _logger.LogWarning("Conclude failed: Event ({EventId}) not found", id);
+
+                    return NotFound();
+                case ServiceStatus.Invalid:
+                    _logger.LogWarning("Conclude failed for Event ({EventId}): {Error}", id, result.Error);
+
+                    return BadRequest(result.Error);
+                default:
+                    _logger.LogInformation("Event ({EventId}) concluded, champion Player {WinnerId}", id, result.Data!.WinnerPlayerId);
+
+                    return Ok(result.Data);
+            }
+        }
     }
 }
