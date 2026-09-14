@@ -18,8 +18,8 @@ namespace ApexPredatorTrialsUNIT.Controllers
         [Fact]
         public async Task Register_NewUsername_ReturnsOkWithToken()
         {
-            var dto = new UserRegisterDto { Username = "alice", Password = "password123" };
-            var response = new AuthResponseDto { Token = "fake-jwt", User = new UserDto { Id = 1, Username = "alice", Role = "User" } };
+            var dto = new UserRegisterDto { Username = "neurraaa", Password = "aruen" };
+            var response = new AuthResponseDto { Token = "fake-jwt", User = new UserDto { Id = 1, Username = "neurraaa", Role = "User" } };
             _serviceMock.Setup(s => s.RegisterAsync(dto)).ReturnsAsync(ServiceResult<AuthResponseDto>.Ok(response));
 
             var result = await _controller.Register(dto);
@@ -31,7 +31,7 @@ namespace ApexPredatorTrialsUNIT.Controllers
         [Fact]
         public async Task Register_DuplicateUsername_ReturnsBadRequest()
         {
-            var dto = new UserRegisterDto { Username = "alice", Password = "password123" };
+            var dto = new UserRegisterDto { Username = "neurraaa", Password = "aruen" };
             _serviceMock.Setup(s => s.RegisterAsync(dto))
                 .ReturnsAsync(ServiceResult<AuthResponseDto>.Invalid("Username is already taken."));
 
@@ -43,8 +43,8 @@ namespace ApexPredatorTrialsUNIT.Controllers
         [Fact]
         public async Task Login_ValidCredentials_ReturnsOkWithToken()
         {
-            var dto = new UserLoginDto { Username = "alice", Password = "password123" };
-            var response = new AuthResponseDto { Token = "fake-jwt", User = new UserDto { Id = 1, Username = "alice", Role = "User" } };
+            var dto = new UserLoginDto { Username = "neurraaa", Password = "aruen" };
+            var response = new AuthResponseDto { Token = "fake-jwt", User = new UserDto { Id = 1, Username = "neurraaa", Role = "User" } };
             _serviceMock.Setup(s => s.LoginAsync(dto)).ReturnsAsync(ServiceResult<AuthResponseDto>.Ok(response));
 
             var result = await _controller.Login(dto);
@@ -56,7 +56,7 @@ namespace ApexPredatorTrialsUNIT.Controllers
         [Fact]
         public async Task Login_InvalidCredentials_ReturnsUnauthorized()
         {
-            var dto = new UserLoginDto { Username = "alice", Password = "wrong" };
+            var dto = new UserLoginDto { Username = "neurraaa", Password = "aruen" };
             _serviceMock.Setup(s => s.LoginAsync(dto))
                 .ReturnsAsync(ServiceResult<AuthResponseDto>.Invalid("Invalid username or password."));
 

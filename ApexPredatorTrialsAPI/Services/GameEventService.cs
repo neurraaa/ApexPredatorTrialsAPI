@@ -60,9 +60,6 @@ namespace ApexPredatorTrialsAPI.Services
             if (dto.Matchups.Count != requiredMatchupCount)
                 return ServiceResult<GameEventDto>.Invalid($"{dto.StartingRound} requires exactly {requiredMatchupCount} matchups.");
 
-            // Validate every matchup up front, without mutating any tracked entity, so a validation
-            // failure partway through can never leave earlier matchups' player/stat changes to be
-            // flushed by TimingMiddleware's unconditional SaveChangesAsync after this request returns.
             var resolved = new List<(MatchupCreateDto Matchup, Player? HunterExisting, Player? HumanExisting)>();
 
             foreach (var matchup in dto.Matchups)
@@ -171,8 +168,6 @@ namespace ApexPredatorTrialsAPI.Services
 
             var slotsById = currentSlots.ToDictionary(s => s.Id);
 
-            // Winners are derived from each slot's recorded match result — never supplied by the
-            // client — and every current-round match must have one before the round can advance.
             var winnerBySlotId = new Dictionary<int, int>();
             foreach (var slot in currentSlots)
             {

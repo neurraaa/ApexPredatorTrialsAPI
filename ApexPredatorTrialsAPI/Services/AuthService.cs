@@ -26,8 +26,6 @@ namespace ApexPredatorTrialsAPI.Services
             if (await _repository.UsernameExistsAsync(dto.Username))
                 return ServiceResult<AuthResponseDto>.Invalid("Username is already taken.");
 
-            // Self-registration always creates a regular User. Admin accounts are provisioned only
-            // via AdminBootstrapService (the configured AdminBootstrap:Username/Password), never here.
             var user = _mapper.Map<User>(dto);
             user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
             user.Role = "User";

@@ -29,7 +29,7 @@ namespace ApexPredatorTrialsAPI.Middleware
             var method = httpContext.Request.Method;
             var path = httpContext.Request.Path;
 
-            _logger.LogInformation("{Method} {Path} from {ClientAddress} took {Duration}ms", method, path, clientAddress, duration);
+            _logger.LogInformation("{Method} {Path} from {ClientAddress} took {Duration} ms", method, path, clientAddress, duration);
 
             Log log = new()
             {

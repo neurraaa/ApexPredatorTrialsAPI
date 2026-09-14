@@ -40,9 +40,6 @@ namespace ApexPredatorTrialsAPI.Controllers
             var result = await _authService.LoginAsync(dto);
             if (result.Status == ServiceStatus.Invalid)
             {
-                // Never log dto.Password. Also deliberately vague to the client (not
-                // "wrong password" vs "no such user") - specific messages here help
-                // an attacker enumerate valid usernames.
                 _logger.LogWarning("Login failed for username {Username}", dto.Username);
                 return Unauthorized(result.Error);
             }

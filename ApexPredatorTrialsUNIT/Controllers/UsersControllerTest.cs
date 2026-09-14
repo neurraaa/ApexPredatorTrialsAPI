@@ -18,7 +18,7 @@ namespace ApexPredatorTrialsUNIT.Controllers
         [Fact]
         public async Task GetUsers_ReturnsOkWithList()
         {
-            var users = new List<UserDto> { new() { Id = 1, Username = "alice" } };
+            var users = new List<UserDto> { new() { Id = 1, Username = "neurraaa" } };
             _serviceMock.Setup(s => s.GetAllAsync()).ReturnsAsync(users);
 
             var result = await _controller.GetUsers();

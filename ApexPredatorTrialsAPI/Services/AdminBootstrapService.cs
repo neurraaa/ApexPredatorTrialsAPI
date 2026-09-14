@@ -1,7 +1,5 @@
-﻿using ApexPredatorTrialsAPI.Data;
-using ApexPredatorTrialsAPI.Interfaces;
+﻿using ApexPredatorTrialsAPI.Interfaces;
 using ApexPredatorTrialsAPI.Models;
-using Microsoft.EntityFrameworkCore;
 
 namespace ApexPredatorTrialsAPI.Services
 {

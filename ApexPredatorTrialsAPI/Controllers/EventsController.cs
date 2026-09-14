@@ -145,9 +145,6 @@ namespace ApexPredatorTrialsAPI.Controllers
             }
         }
 
-        // Admins can manage any event; the organizer who created an event can manage only their own
-        // (edit basic fields, advance the bracket, declare the Final winner) — but never delete it,
-        // which stays Admin-only via [Authorize(Roles = "Admin")] on that action.
         private async Task<bool> CanManageEventAsync(int eventId)
         {
             if (User.IsInRole("Admin")) return true;
