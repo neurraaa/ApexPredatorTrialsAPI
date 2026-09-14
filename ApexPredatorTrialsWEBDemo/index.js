@@ -45,6 +45,10 @@ async function loadEvents() {
 }
 
 const REGIONS = ['EU', 'NA', 'SA', 'AP'];
+const PLATFORMS = ['Steam', 'Epic Games'];
+const HUNTER_RANKS = ['Walker', 'Runner', 'Biter', 'Bolter', 'Stalker', 'Beast', 'Mauler', 'Juggernaut', 'Widow Maker', 'Carnivore', 'Hunter', 'Apex Predator'];
+const HUMAN_RANKS = ['Prey', 'Casualty', 'Endangered', 'Underdog', 'Runner', 'Contender', 'Challenger', 'Fighter', 'Dominant', 'Ruthless', 'Indomitable', 'Ultimate Survivor'];
+const STARTING_ROUND_MATCHUP_COUNT = { 'Quarter-Final': 4, 'Semi-Final': 2, 'Final': 1 };
 
 function createPlayerEntryFields(role) {
   const wrapper = document.createElement('fieldset');
@@ -59,16 +63,26 @@ function createPlayerEntryFields(role) {
     <p class="entry-selected" style="display:none"></p>
     <div class="entry-new-fields">
       <input type="text" class="entry-name" placeholder="Player name" required>
-      <input type="text" class="entry-platform" placeholder="Platform" required>
+      <select class="entry-platform" required>
+        ${PLATFORMS.map((p) => `<option value="${p}">${p}</option>`).join('')}
+      </select>
       <select class="entry-region">
         ${REGIONS.map((r) => `<option value="${r}">${r}</option>`).join('')}
       </select>
     </div>
     <div class="entry-stats">
-      <label>Hunter rank: <input type="text" class="stat-hunterRank" required></label>
+      <label>Hunter rank:
+        <select class="stat-hunterRank" required>
+          ${HUNTER_RANKS.map((r) => `<option value="${r}">${r}</option>`).join('')}
+        </select>
+      </label>
       <label>Hunter hours: <input type="number" class="stat-hunterHoursPlayed" value="0" min="0" required></label>
       <label>Mutation level: <input type="number" class="stat-mutationLevel" value="1" min="1" max="3" required></label>
-      <label>Human rank: <input type="text" class="stat-humanRank" required></label>
+      <label>Human rank:
+        <select class="stat-humanRank" required>
+          ${HUMAN_RANKS.map((r) => `<option value="${r}">${r}</option>`).join('')}
+        </select>
+      </label>
       <label>Human hours: <input type="number" class="stat-humanHoursPlayed" value="0" min="0" required></label>
       <label>Legend level: <input type="number" class="stat-legendLevel" value="1" min="1" max="250" required></label>
     </div>
@@ -113,6 +127,10 @@ function createPlayerEntryFields(role) {
     selectedLabel.style.display = '';
     selectedLabel.textContent = `Updating stats for existing player: ${player.name}`;
     newFields.style.display = 'none';
+    // Fields inside a hidden container are still subject to native form validation
+    // (and can't be focused to show the validation error), so drop `required` while hidden.
+    nameInput.required = false;
+    platformInput.required = false;
     resultsList.innerHTML = '';
     searchInput.style.display = 'none';
     searchBtn.style.display = 'none';
@@ -137,6 +155,8 @@ function createPlayerEntryFields(role) {
     selectedPlayerId = null;
     selectedLabel.style.display = 'none';
     newFields.style.display = '';
+    nameInput.required = true;
+    platformInput.required = true;
     searchInput.style.display = '';
     searchBtn.style.display = '';
     clearBtn.style.display = 'none';
@@ -205,24 +225,32 @@ function renderCreateEventForm() {
         </select>
       </label>
       <h3>Matchups</h3>
-      <p>Add every matchup competing in the starting round. Search for an existing player to update their stats, or leave the search empty and fill in a brand-new player.</p>
+      <p id="matchups-hint"></p>
       <div id="matchups-container"></div>
-      <button type="button" id="add-matchup-btn">Add matchup</button>
       <button type="submit">Create Event</button>
     </form>
   `;
 
   const matchupsContainer = document.getElementById('matchups-container');
-  const matchups = [];
+  const matchupsHint = document.getElementById('matchups-hint');
+  const startingRoundSelect = document.getElementById('event-starting-round');
+  let matchups = [];
 
-  function addMatchup() {
-    const matchup = createMatchupFields(matchups.length + 1);
-    matchups.push(matchup);
-    matchupsContainer.appendChild(matchup.element);
+  function renderMatchupsForRound() {
+    const requiredCount = STARTING_ROUND_MATCHUP_COUNT[startingRoundSelect.value];
+    matchupsHint.textContent = `${startingRoundSelect.value} requires exactly ${requiredCount} matchups. Search for an existing player to update their stats, or leave the search empty and fill in a brand-new player.`;
+
+    matchupsContainer.innerHTML = '';
+    matchups = [];
+    for (let i = 0; i < requiredCount; i++) {
+      const matchup = createMatchupFields(i + 1);
+      matchups.push(matchup);
+      matchupsContainer.appendChild(matchup.element);
+    }
   }
 
-  document.getElementById('add-matchup-btn').addEventListener('click', addMatchup);
-  addMatchup();
+  startingRoundSelect.addEventListener('change', renderMatchupsForRound);
+  renderMatchupsForRound();
 
   document.getElementById('create-event-form').addEventListener('submit', async (e) => {
     e.preventDefault();

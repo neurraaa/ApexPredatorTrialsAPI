@@ -47,6 +47,10 @@ namespace ApexPredatorTrialsAPI.Services
             if (!TournamentRound.IsValid(dto.StartingRound) || dto.StartingRound == "Final")
                 return ServiceResult<GameEventDto>.Invalid("Starting round must be Quarter-Final or Semi-Final.");
 
+            var requiredMatchupCount = TournamentRound.RequiredStartingMatchupCount(dto.StartingRound)!.Value;
+            if (dto.Matchups.Count != requiredMatchupCount)
+                return ServiceResult<GameEventDto>.Invalid($"{dto.StartingRound} requires exactly {requiredMatchupCount} matchups.");
+
             // Validate every matchup up front, without mutating any tracked entity, so a validation
             // failure partway through can never leave earlier matchups' player/stat changes to be
             // flushed by TimingMiddleware's unconditional SaveChangesAsync after this request returns.
