@@ -30,6 +30,63 @@ function clearSession() {
   localStorage.removeItem('user');
 }
 
+const SESSION_TIMEOUT_MS = 5 * 60 * 1000;
+const LAST_ACTIVITY_KEY = 'lastActivity';
+
+function isTokenExpired(token) {
+  try {
+    const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
+    const payload = JSON.parse(atob(padded));
+    return !payload.exp || Date.now() >= payload.exp * 1000;
+  } catch {
+    return true;
+  }
+}
+
+function markActivity() {
+  if (getUser()) localStorage.setItem(LAST_ACTIVITY_KEY, String(Date.now()));
+}
+
+function expireSession() {
+  if (!getUser()) return;
+  clearSession();
+  localStorage.removeItem(LAST_ACTIVITY_KEY);
+
+  const header = document.getElementById('site-header');
+  if (header) {
+    header.innerHTML = `
+      <nav>
+        <a href="index.html">Home</a> | <a href="auth.html">Login / Register</a>
+      </nav>
+      <p>You were logged out due to inactivity. Please log in again.</p>
+      <hr>
+    `;
+  }
+}
+
+function checkSessionTimeout() {
+  if (!getUser()) return;
+
+  const token = getToken();
+  if (token && isTokenExpired(token)) {
+    expireSession();
+    return;
+  }
+
+  const lastActivity = Number(localStorage.getItem(LAST_ACTIVITY_KEY)) || Date.now();
+  if (Date.now() - lastActivity >= SESSION_TIMEOUT_MS) {
+    expireSession();
+  }
+}
+
+checkSessionTimeout();
+markActivity();
+['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart'].forEach((evt) =>
+  document.addEventListener(evt, markActivity, { passive: true })
+);
+setInterval(checkSessionTimeout, 15000);
+
 async function apiFetch(path, options = {}) {
   const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
   const token = getToken();

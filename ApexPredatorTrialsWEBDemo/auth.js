@@ -8,8 +8,7 @@ document.getElementById('register-form').addEventListener('submit', async (e) =>
       method: 'POST',
       body: JSON.stringify({
         username: document.getElementById('register-username').value,
-        password: document.getElementById('register-password').value,
-        role: document.getElementById('register-role').value
+        password: document.getElementById('register-password').value
       })
     });
     setSession(result.token, result.user);

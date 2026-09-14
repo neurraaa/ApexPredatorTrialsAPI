@@ -10,18 +10,15 @@ namespace ApexPredatorTrialsAPI.Services
         private readonly IUserRepository _repository;
         private readonly ITokenService _tokenService;
         private readonly IMapper _mapper;
-        private readonly IWebHostEnvironment _environment;
 
         public AuthService(
             IUserRepository repository,
             ITokenService tokenService,
-            IMapper mapper,
-            IWebHostEnvironment environment)
+            IMapper mapper)
         {
             _repository = repository;
             _tokenService = tokenService;
             _mapper = mapper;
-            _environment = environment;
         }
 
         public async Task<ServiceResult<AuthResponseDto>> RegisterAsync(UserRegisterDto dto)
@@ -29,13 +26,11 @@ namespace ApexPredatorTrialsAPI.Services
             if (await _repository.UsernameExistsAsync(dto.Username))
                 return ServiceResult<AuthResponseDto>.Invalid("Username is already taken.");
 
-            var requestedRole = dto.Role.Equals("Admin", StringComparison.OrdinalIgnoreCase) ? "Admin" : "User";
-            if (requestedRole == "Admin" && !_environment.IsDevelopment())
-                return ServiceResult<AuthResponseDto>.Invalid("Admin self-registration is available only in Development.");
-
+            // Self-registration always creates a regular User. Admin accounts are provisioned only
+            // via AdminBootstrapService (the configured AdminBootstrap:Username/Password), never here.
             var user = _mapper.Map<User>(dto);
             user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
-            user.Role = requestedRole;
+            user.Role = "User";
 
             await _repository.AddAsync(user);
             await _repository.SaveChangesAsync();
