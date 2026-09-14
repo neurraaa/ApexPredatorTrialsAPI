@@ -14,6 +14,8 @@ namespace ApexPredatorTrialsAPI.DTOs
         public int? HumanPlayerId { get; set; }
         public string? HumanPlayerName { get; set; }
         public int? WinnerPlayerId { get; set; }
+        public int? MapId { get; set; }
+        public string? MapName { get; set; }
     }
     public class GameEventScheduleWriteDto
     {

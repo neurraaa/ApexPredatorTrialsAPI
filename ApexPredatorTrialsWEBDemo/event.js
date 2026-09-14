@@ -9,6 +9,7 @@ function getEventIdFromUrl() {
 const eventId = getEventIdFromUrl();
 let currentEvent = null;
 let currentBracket = [];
+let availableMaps = [];
 
 function getFinalSlot() {
   return currentBracket.find((s) => s.round === 'Final');
@@ -90,91 +91,159 @@ function renderEditEventForm() {
   });
 }
 
-function renderConcludeSection(section) {
-  const finalSlot = getFinalSlot();
-  if (!finalSlot) {
-    section.innerHTML = '<p>No Final matchup exists yet.</p>';
-    return;
-  }
+function resultField(form, labelText, className, value) {
+  const label = document.createElement('label');
+  label.textContent = ` ${labelText}: `;
+  const input = document.createElement('input');
+  input.type = 'number';
+  input.className = className;
+  input.min = 0;
+  input.value = value;
+  input.required = true;
+  label.appendChild(input);
+  form.appendChild(label);
+  return input;
+}
 
-  const champion = championName(finalSlot);
-  if (champion) {
-    section.innerHTML = `<h3>&#127942; ${champion} won!</h3>`;
-    return;
-  }
-
-  const heading = document.createElement('h3');
-  heading.textContent = 'Declare Final winner';
-  section.appendChild(heading);
+function renderMatchResultForm(container, slot, onSaved, existing) {
+  container.innerHTML = '';
+  const heading = document.createElement('h4');
+  heading.innerHTML = matchupLabel(slot);
+  container.appendChild(heading);
 
   const form = document.createElement('form');
-  form.id = 'conclude-form';
 
-  const fieldset = document.createElement('fieldset');
-  const legend = document.createElement('legend');
-  legend.innerHTML = matchupLabel(finalSlot);
-  fieldset.appendChild(legend);
-
-  [['hunter', finalSlot.hunterPlayerId, finalSlot.hunterPlayerName], ['human', finalSlot.humanPlayerId, finalSlot.humanPlayerName]].forEach(([side, playerId, playerName]) => {
-    const label = document.createElement('label');
-    const radio = document.createElement('input');
-    radio.type = 'radio';
-    radio.name = 'final-winner';
-    radio.value = String(playerId);
-    radio.required = true;
-    radio.disabled = !playerId;
-    label.appendChild(radio);
-    label.append(` ${playerName || 'TBD'} (${side})`);
-    fieldset.appendChild(label);
+  const winnerLabel = document.createElement('label');
+  winnerLabel.textContent = 'Winner: ';
+  const winnerSelect = document.createElement('select');
+  [['hunter', slot.hunterPlayerId, slot.hunterPlayerName], ['human', slot.humanPlayerId, slot.humanPlayerName]].forEach(([side, id, name]) => {
+    const opt = document.createElement('option');
+    opt.value = id;
+    opt.dataset.side = side;
+    opt.textContent = `${name} (${side})`;
+    if (existing && existing.winnerId === id) opt.selected = true;
+    winnerSelect.appendChild(opt);
   });
-  form.appendChild(fieldset);
+  winnerLabel.appendChild(winnerSelect);
+  form.appendChild(winnerLabel);
+
+  // Loser deaths/kills are always the mirror of winner kills/deaths, so only the winner's
+  // stats are entered. Hunter wins by reaching 10 kills; Human wins by destroying 5 nests.
+  const winnerDeaths = resultField(form, 'Winner deaths', 'result-winner-deaths', existing ? existing.winnerDeaths : 0);
+  const winnerKills = resultField(form, 'Winner kills', 'result-winner-kills', existing ? existing.winnerKills : 0);
+  const nests = resultField(form, 'Nests destroyed', 'result-nests', existing ? existing.nestsDestroyed : 0);
+  nests.max = 5;
+
+  function applyWinCondition() {
+    const side = winnerSelect.options[winnerSelect.selectedIndex].dataset.side;
+    if (side === 'hunter') winnerKills.value = 10;
+    if (side === 'human') nests.value = 5;
+  }
+  winnerSelect.addEventListener('change', applyWinCondition);
+  if (!existing) applyWinCondition();
 
   const submitBtn = document.createElement('button');
   submitBtn.type = 'submit';
-  submitBtn.textContent = 'Conclude event';
+  submitBtn.textContent = existing ? 'Save changes' : 'Save result';
   form.appendChild(submitBtn);
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const selected = form.querySelector('input[name="final-winner"]:checked');
-    if (!selected) {
-      showOutput({ error: 'Select the Final winner before concluding.' });
-      return;
-    }
+    const winnerId = Number(winnerSelect.value);
+    const loserId = winnerId === slot.hunterPlayerId ? slot.humanPlayerId : slot.hunterPlayerId;
     try {
-      await apiFetch(`/events/${eventId}/conclude`, {
-        method: 'POST',
-        body: JSON.stringify({ winnerPlayerId: Number(selected.value) })
+      await apiFetch(`/events/${eventId}/schedules/${slot.id}/results`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          winnerId,
+          loserId,
+          winnerDeaths: Number(winnerDeaths.value),
+          winnerKills: Number(winnerKills.value),
+          loserDeaths: Number(winnerKills.value),
+          loserKills: Number(winnerDeaths.value),
+          nestsDestroyed: Number(nests.value)
+        })
       });
-      showOutput({ message: 'Event concluded.' });
-      loadEvent();
+      showOutput({ message: 'Match result saved.' });
+      onSaved();
     } catch (err) {
       showOutput({ error: err.message });
     }
   });
 
-  section.appendChild(form);
+  container.appendChild(form);
+}
+
+function renderMatchResultSection(container, slot, onSaved) {
+  container.innerHTML = '';
+  const heading = document.createElement('h4');
+  heading.innerHTML = matchupLabel(slot);
+  container.appendChild(heading);
+
+  if (!slot.winnerPlayerId) {
+    renderMatchResultForm(container, slot, onSaved, null);
+    return;
+  }
+
+  const winnerName = slot.winnerPlayerId === slot.hunterPlayerId ? slot.hunterPlayerName : slot.humanPlayerName;
+  const p = document.createElement('p');
+  p.innerHTML = `&#127942; Winner: <strong>${winnerName}</strong> &mdash; <a href="match.html?id=${slot.matchId}">view full result</a>`;
+  container.appendChild(p);
+
+  const editBtn = document.createElement('button');
+  editBtn.type = 'button';
+  editBtn.textContent = 'Edit result';
+  editBtn.addEventListener('click', async () => {
+    let existing = null;
+    try {
+      existing = await apiFetch(`/match-results/by-match/${slot.matchId}`);
+    } catch {
+      // Fall back to a blank form if the existing result can't be loaded.
+    }
+    renderMatchResultForm(container, slot, onSaved, existing);
+  });
+  container.appendChild(editBtn);
 }
 
 function renderAdvancePhaseSection() {
   const section = document.getElementById('advance-phase-section');
   section.innerHTML = '';
 
+  const currentSlots = currentBracket.filter((s) => s.round === currentEvent.currentRound);
+  if (currentSlots.length === 0) {
+    section.innerHTML = '<p>No matchups in the current round yet.</p>';
+    return;
+  }
+
+  const resultsHeading = document.createElement('h3');
+  resultsHeading.textContent = 'Match results';
+  section.appendChild(resultsHeading);
+
+  currentSlots.forEach((slot) => {
+    const slotContainer = document.createElement('div');
+    section.appendChild(slotContainer);
+    renderMatchResultSection(slotContainer, slot, loadEvent);
+  });
+
+  const allResultsRecorded = currentSlots.every((s) => !!s.winnerPlayerId);
+
   if (currentEvent.currentRound === 'Final') {
-    renderConcludeSection(section);
+    if (allResultsRecorded) {
+      const p = document.createElement('p');
+      p.innerHTML = '<strong>Event concluded.</strong>';
+      section.appendChild(p);
+    }
     return;
   }
 
   const nextRoundIndex = ROUND_ORDER.indexOf(currentEvent.currentRound) + 1;
-  if (nextRoundIndex >= ROUND_ORDER.length || nextRoundIndex <= 0) {
-    section.innerHTML = '<p>This event has reached the Final.</p>';
-    return;
-  }
+  if (nextRoundIndex <= 0 || nextRoundIndex >= ROUND_ORDER.length) return;
   const nextRound = ROUND_ORDER[nextRoundIndex];
 
-  const currentSlots = currentBracket.filter((s) => s.round === currentEvent.currentRound);
-  if (currentSlots.length === 0) {
-    section.innerHTML = '<p>No matchups in the current round yet.</p>';
+  if (!allResultsRecorded) {
+    const p = document.createElement('p');
+    p.textContent = `Record every ${currentEvent.currentRound} match result before advancing to ${nextRound}.`;
+    section.appendChild(p);
     return;
   }
 
@@ -185,40 +254,16 @@ function renderAdvancePhaseSection() {
   const form = document.createElement('form');
   form.id = 'advance-phase-form';
 
-  const winnerSelections = {};
-  currentSlots.forEach((slot) => {
-    const fieldset = document.createElement('fieldset');
-    const legend = document.createElement('legend');
-    legend.innerHTML = matchupLabel(slot);
-    fieldset.appendChild(legend);
-
-    [['hunter', slot.hunterPlayerId, slot.hunterPlayerName], ['human', slot.humanPlayerId, slot.humanPlayerName]].forEach(([side, playerId, playerName]) => {
-      const label = document.createElement('label');
-      const radio = document.createElement('input');
-      radio.type = 'radio';
-      radio.name = `winner-${slot.id}`;
-      radio.value = String(playerId);
-      radio.required = true;
-      radio.disabled = !playerId;
-      radio.addEventListener('change', () => { winnerSelections[slot.id] = Number(playerId); });
-      label.appendChild(radio);
-      label.append(` ${playerName || 'TBD'} (${side})`);
-      fieldset.appendChild(label);
-    });
-    form.appendChild(fieldset);
-  });
-
-  const pairingContainer = document.createElement('div');
   const pairingHeading = document.createElement('h4');
   pairingHeading.textContent = 'Next round pairings';
   const maxPairings = currentSlots.length / 2;
   const pairingHint = document.createElement('p');
-  pairingHint.textContent = `Pair up the declared winners into ${nextRound} matchups (one Hunter side, one Human side). ${currentSlots.length} winners means exactly ${maxPairings} ${maxPairings === 1 ? 'matchup' : 'matchups'} next round.`;
-  pairingContainer.appendChild(pairingHeading);
-  pairingContainer.appendChild(pairingHint);
+  pairingHint.textContent = `Pair up the declared winners into ${nextRound} matchups (one Hunter side, one Human side), and pick a map for each. ${currentSlots.length} winners means exactly ${maxPairings} ${maxPairings === 1 ? 'matchup' : 'matchups'} next round.`;
+  form.appendChild(pairingHeading);
+  form.appendChild(pairingHint);
 
   const pairingsList = document.createElement('div');
-  pairingContainer.appendChild(pairingsList);
+  form.appendChild(pairingsList);
 
   const pairings = [];
   function renderPairingRow() {
@@ -233,19 +278,27 @@ function renderAdvancePhaseSection() {
         select.appendChild(opt);
       });
     });
+    const mapSelect = document.createElement('select');
+    availableMaps.forEach((m) => {
+      const opt = document.createElement('option');
+      opt.value = m.id;
+      opt.textContent = m.name;
+      mapSelect.appendChild(opt);
+    });
+
     row.appendChild(document.createTextNode('Hunter-side winner from: '));
     row.appendChild(hunterSelect);
     row.appendChild(document.createTextNode(' Human-side winner from: '));
     row.appendChild(humanSelect);
+    row.appendChild(document.createTextNode(' Map: '));
+    row.appendChild(mapSelect);
     pairingsList.appendChild(row);
-    pairings.push({ hunterSelect, humanSelect });
+    pairings.push({ hunterSelect, humanSelect, mapSelect });
   }
 
   // Every current-round winner must advance into exactly one next-round matchup, so with N winners
   // there are always exactly N/2 pairings possible — no manual "add pairing" beyond that.
   for (let i = 0; i < maxPairings; i++) renderPairingRow();
-
-  form.appendChild(pairingContainer);
 
   const submitBtn = document.createElement('button');
   submitBtn.type = 'submit';
@@ -255,22 +308,15 @@ function renderAdvancePhaseSection() {
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     try {
-      const winners = currentSlots.map((slot) => ({
-        scheduleId: slot.id,
-        winnerPlayerId: winnerSelections[slot.id]
-      }));
-      if (winners.some((w) => !w.winnerPlayerId)) {
-        showOutput({ error: 'Declare a winner for every matchup before advancing.' });
-        return;
-      }
       const nextMatchups = pairings.map((p) => ({
         hunterScheduleId: Number(p.hunterSelect.value),
-        humanScheduleId: Number(p.humanSelect.value)
+        humanScheduleId: Number(p.humanSelect.value),
+        mapId: Number(p.mapSelect.value)
       }));
 
       await apiFetch(`/events/${eventId}/advance-phase`, {
         method: 'POST',
-        body: JSON.stringify({ nextRound, winners, nextMatchups })
+        body: JSON.stringify({ nextRound, nextMatchups })
       });
       showOutput({ message: `Advanced to ${nextRound}.` });
       loadEvent();
@@ -324,7 +370,14 @@ async function loadEvent() {
       ${statusLine}
     `;
 
-    if (canManageEvent(currentEvent)) renderManagePanel();
+    if (canManageEvent(currentEvent)) {
+      try {
+        availableMaps = await apiFetch('/maps');
+      } catch {
+        availableMaps = [];
+      }
+      renderManagePanel();
+    }
   } catch (err) {
     document.getElementById('event-summary').textContent = `Failed to load event: ${err.message}`;
   }

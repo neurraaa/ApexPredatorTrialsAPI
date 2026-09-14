@@ -24,7 +24,10 @@ function playerLink(id, name) {
 function matchupLabel(slot) {
   const hunter = playerLink(slot.hunterPlayerId, slot.hunterPlayerName);
   const human = playerLink(slot.humanPlayerId, slot.humanPlayerName);
-  return `${hunter} (Hunter) vs ${human} (Human)`;
+  const base = `${hunter} (Hunter) vs ${human} (Human)`;
+  return slot.matchId
+    ? `${base} on <a href="match.html?id=${slot.matchId}">${slot.mapName}</a>`
+    : base;
 }
 function setSession(token, user) {
   localStorage.setItem('token', token);
@@ -57,6 +60,8 @@ function expireSession() {
   if (!getUser()) return;
   clearSession();
   localStorage.removeItem(LAST_ACTIVITY_KEY);
+
+  location.reload();
 
   const header = document.getElementById('site-header');
   if (header) {

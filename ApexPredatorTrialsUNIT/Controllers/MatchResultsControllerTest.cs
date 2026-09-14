@@ -74,6 +74,64 @@ namespace ApexPredatorTrialsUNIT.Controllers
         }
 
         [Fact]
+        public async Task GetByMatch_Found_ReturnsOk()
+        {
+            var results = new MatchResultsDto { Id = 1, MatchId = 7, WinnerId = 1, LoserId = 2 };
+            _serviceMock.Setup(s => s.GetByMatchIdAsync(7)).ReturnsAsync(results);
+
+            var result = await _controller.GetByMatch(7);
+
+            var ok = Assert.IsType<OkObjectResult>(result.Result);
+            Assert.Equal(results, ok.Value);
+        }
+
+        [Fact]
+        public async Task GetByMatch_Missing_ReturnsNotFound()
+        {
+            _serviceMock.Setup(s => s.GetByMatchIdAsync(7)).ReturnsAsync((MatchResultsDto?)null);
+
+            var result = await _controller.GetByMatch(7);
+
+            Assert.IsType<NotFoundResult>(result.Result);
+        }
+
+        [Fact]
+        public async Task Update_Valid_ReturnsOk()
+        {
+            var dto = new MatchResultsCreateDto { MatchId = 1, WinnerId = 1, LoserId = 2 };
+            var updated = new MatchResultsDto { Id = 1, MatchId = 1, WinnerId = 1, LoserId = 2 };
+            _serviceMock.Setup(s => s.UpdateAsync(1, dto)).ReturnsAsync(ServiceResult<MatchResultsDto>.Ok(updated));
+
+            var result = await _controller.Update(1, dto);
+
+            var ok = Assert.IsType<OkObjectResult>(result);
+            Assert.Equal(updated, ok.Value);
+        }
+
+        [Fact]
+        public async Task Update_Missing_ReturnsNotFound()
+        {
+            var dto = new MatchResultsCreateDto { MatchId = 1, WinnerId = 1, LoserId = 2 };
+            _serviceMock.Setup(s => s.UpdateAsync(99, dto)).ReturnsAsync(ServiceResult<MatchResultsDto>.NotFound());
+
+            var result = await _controller.Update(99, dto);
+
+            Assert.IsType<NotFoundResult>(result);
+        }
+
+        [Fact]
+        public async Task Update_InvalidWinnerLoser_ReturnsBadRequest()
+        {
+            var dto = new MatchResultsCreateDto { MatchId = 1, WinnerId = 1, LoserId = 1 };
+            _serviceMock.Setup(s => s.UpdateAsync(1, dto))
+                .ReturnsAsync(ServiceResult<MatchResultsDto>.Invalid("Winner and Loser cannot be the same player."));
+
+            var result = await _controller.Update(1, dto);
+
+            Assert.IsType<BadRequestObjectResult>(result);
+        }
+
+        [Fact]
         public async Task Delete_Existing_ReturnsNoContent()
         {
             _serviceMock.Setup(s => s.DeleteAsync(1)).ReturnsAsync(true);

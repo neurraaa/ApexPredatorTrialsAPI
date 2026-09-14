@@ -6,5 +6,6 @@ namespace ApexPredatorTrialsAPI.Interfaces
     {
         Task<List<MatchResults>> GetAllWithPlayersAsync();
         Task<MatchResults?> GetByIdWithPlayersAsync(int id);
+        Task<MatchResults?> GetByMatchIdAsync(int matchId);
     }
 }

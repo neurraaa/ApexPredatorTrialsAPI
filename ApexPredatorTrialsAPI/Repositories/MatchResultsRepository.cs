@@ -14,5 +14,8 @@ namespace ApexPredatorTrialsAPI.Repositories
 
         public async Task<MatchResults?> GetByIdWithPlayersAsync(int id) =>
             await DbSet.Include(r => r.Winner).Include(r => r.Loser).FirstOrDefaultAsync(r => r.Id == id);
+
+        public async Task<MatchResults?> GetByMatchIdAsync(int matchId) =>
+            await DbSet.Include(r => r.Winner).Include(r => r.Loser).FirstOrDefaultAsync(r => r.MatchId == matchId);
     }
 }

@@ -12,6 +12,9 @@ namespace ApexPredatorTrialsAPI.Services
         private readonly IGameEventRegistrationRepository _registrationRepository;
         private readonly IPlayerRepository _playerRepository;
         private readonly IPlayerStatsRepository _statsRepository;
+        private readonly IGameMapRepository _mapRepository;
+        private readonly IMatchRepository _matchRepository;
+        private readonly IMatchResultsService _matchResultsService;
         private readonly IMapper _mapper;
 
         public GameEventService(
@@ -20,6 +23,9 @@ namespace ApexPredatorTrialsAPI.Services
             IGameEventRegistrationRepository registrationRepository,
             IPlayerRepository playerRepository,
             IPlayerStatsRepository statsRepository,
+            IGameMapRepository mapRepository,
+            IMatchRepository matchRepository,
+            IMatchResultsService matchResultsService,
             IMapper mapper)
         {
             _repository = repository;
@@ -27,6 +33,9 @@ namespace ApexPredatorTrialsAPI.Services
             _registrationRepository = registrationRepository;
             _playerRepository = playerRepository;
             _statsRepository = statsRepository;
+            _mapRepository = mapRepository;
+            _matchRepository = matchRepository;
+            _matchResultsService = matchResultsService;
             _mapper = mapper;
         }
 
@@ -61,6 +70,9 @@ namespace ApexPredatorTrialsAPI.Services
                 if (matchup.Hunter.PlayerId is not null && matchup.Hunter.PlayerId == matchup.Human.PlayerId)
                     return ServiceResult<GameEventDto>.Invalid("A player cannot compete against themselves in the same matchup.");
 
+                if (await _mapRepository.GetByIdAsync(matchup.MapId) is null)
+                    return ServiceResult<GameEventDto>.Invalid($"Map {matchup.MapId} does not exist.");
+
                 var (hunterExisting, hunterError) = await ValidateEntryAsync(matchup.Hunter);
                 if (hunterError is not null) return ServiceResult<GameEventDto>.Invalid(hunterError);
 
@@ -89,12 +101,22 @@ namespace ApexPredatorTrialsAPI.Services
                 var hunter = await ApplyEntryAsync(matchup.Hunter, hunterExisting);
                 var human = await ApplyEntryAsync(matchup.Human, humanExisting);
 
+                var match = new Match
+                {
+                    Event = ev,
+                    HunterPlayer = hunter,
+                    HumanPlayer = human,
+                    MapId = matchup.MapId,
+                    Region = dto.Region,
+                    DateTime = DateTime.UtcNow
+                };
+                await _matchRepository.AddAsync(match);
+
                 var schedule = new GameEventSchedule
                 {
                     Event = ev,
                     Round = dto.StartingRound,
-                    HunterPlayer = hunter,
-                    HumanPlayer = human
+                    Match = match
                 };
                 await _scheduleRepository.AddAsync(schedule);
 
@@ -147,25 +169,18 @@ namespace ApexPredatorTrialsAPI.Services
             if (currentSlots.Count == 0)
                 return ServiceResult<GameEventDto>.Invalid("There are no matchups in the current round to advance.");
 
-            if (dto.Winners.Count != currentSlots.Count ||
-                dto.Winners.Select(w => w.ScheduleId).Distinct().Count() != currentSlots.Count)
-                return ServiceResult<GameEventDto>.Invalid("A winner must be declared for every matchup in the current round, exactly once.");
-
             var slotsById = currentSlots.ToDictionary(s => s.Id);
 
-            // Validate every winner and pairing before mutating any tracked entity (see the same
-            // note in CreateAsync) — a slot's WinnerPlayerId is only ever set once the whole request
-            // is known to succeed.
+            // Winners are derived from each slot's recorded match result — never supplied by the
+            // client — and every current-round match must have one before the round can advance.
             var winnerBySlotId = new Dictionary<int, int>();
-            foreach (var winner in dto.Winners)
+            foreach (var slot in currentSlots)
             {
-                if (!slotsById.TryGetValue(winner.ScheduleId, out var slot))
-                    return ServiceResult<GameEventDto>.Invalid($"Schedule slot {winner.ScheduleId} is not part of the current round of this event.");
+                var winnerId = slot.Match?.MatchResults?.WinnerId;
+                if (winnerId is null)
+                    return ServiceResult<GameEventDto>.Invalid($"Schedule slot {slot.Id} does not have a recorded match result yet.");
 
-                if (winner.WinnerPlayerId != slot.HunterPlayerId && winner.WinnerPlayerId != slot.HumanPlayerId)
-                    return ServiceResult<GameEventDto>.Invalid($"The declared winner for slot {winner.ScheduleId} must be one of its two competing players.");
-
-                winnerBySlotId[slot.Id] = winner.WinnerPlayerId;
+                winnerBySlotId[slot.Id] = winnerId.Value;
             }
 
             var usedSlotIds = new HashSet<int>();
@@ -177,20 +192,33 @@ namespace ApexPredatorTrialsAPI.Services
             if (!usedSlotIds.SetEquals(slotsById.Keys))
                 return ServiceResult<GameEventDto>.Invalid("Every current-round matchup's winner must advance into exactly one next-round matchup.");
 
-            foreach (var slot in currentSlots)
-                slot.WinnerPlayerId = winnerBySlotId[slot.Id];
+            foreach (var matchup in dto.NextMatchups)
+            {
+                if (await _mapRepository.GetByIdAsync(matchup.MapId) is null)
+                    return ServiceResult<GameEventDto>.Invalid($"Map {matchup.MapId} does not exist.");
+            }
 
             foreach (var matchup in dto.NextMatchups)
             {
                 var hunterSlot = slotsById[matchup.HunterScheduleId];
                 var humanSlot = slotsById[matchup.HumanScheduleId];
 
+                var nextMatch = new Match
+                {
+                    Event = ev,
+                    HunterPlayerId = winnerBySlotId[hunterSlot.Id],
+                    HumanPlayerId = winnerBySlotId[humanSlot.Id],
+                    MapId = matchup.MapId,
+                    Region = ev.Region,
+                    DateTime = DateTime.UtcNow
+                };
+                await _matchRepository.AddAsync(nextMatch);
+
                 var nextSlot = new GameEventSchedule
                 {
                     Event = ev,
                     Round = dto.NextRound,
-                    HunterPlayerId = hunterSlot.WinnerPlayerId,
-                    HumanPlayerId = humanSlot.WinnerPlayerId
+                    Match = nextMatch
                 };
                 await _scheduleRepository.AddAsync(nextSlot);
 
@@ -205,26 +233,39 @@ namespace ApexPredatorTrialsAPI.Services
             return ServiceResult<GameEventDto>.Ok(_mapper.Map<GameEventDto>(ev));
         }
 
-        public async Task<ServiceResult<GameEventScheduleDto>> ConcludeAsync(int eventId, ConcludeEventDto dto)
+        public async Task<ServiceResult<GameEventScheduleDto>> SetMatchResultAsync(int eventId, int scheduleId, ScheduleMatchResultDto dto)
         {
-            var ev = await _repository.GetByIdAsync(eventId);
-            if (ev is null) return ServiceResult<GameEventScheduleDto>.NotFound();
+            var slot = await _scheduleRepository.GetByIdWithMatchAsync(scheduleId);
+            if (slot is null || slot.EventId != eventId)
+                return ServiceResult<GameEventScheduleDto>.NotFound();
 
-            if (ev.CurrentRound != "Final")
-                return ServiceResult<GameEventScheduleDto>.Invalid("The event must reach the Final round before it can be concluded.");
+            if (slot.MatchId is null)
+                return ServiceResult<GameEventScheduleDto>.Invalid("This matchup does not have an associated match yet.");
 
-            var finalSlots = await _scheduleRepository.GetByEventIdAndRoundAsync(eventId, "Final");
-            if (finalSlots.Count != 1)
-                return ServiceResult<GameEventScheduleDto>.Invalid("The Final round does not have exactly one matchup.");
+            var resultDto = new MatchResultsCreateDto
+            {
+                MatchId = slot.MatchId.Value,
+                WinnerId = dto.WinnerId,
+                LoserId = dto.LoserId,
+                WinnerDeaths = dto.WinnerDeaths,
+                WinnerKills = dto.WinnerKills,
+                LoserDeaths = dto.LoserDeaths,
+                LoserKills = dto.LoserKills,
+                NestsDestroyed = dto.NestsDestroyed
+            };
 
-            var finalSlot = finalSlots[0];
-            if (dto.WinnerPlayerId != finalSlot.HunterPlayerId && dto.WinnerPlayerId != finalSlot.HumanPlayerId)
-                return ServiceResult<GameEventScheduleDto>.Invalid("The declared champion must be one of the two Final competitors.");
+            var existing = await _matchResultsService.GetByMatchIdAsync(slot.MatchId.Value);
+            var result = existing is null
+                ? await _matchResultsService.CreateAsync(resultDto)
+                : await _matchResultsService.UpdateAsync(existing.Id, resultDto);
 
-            finalSlot.WinnerPlayerId = dto.WinnerPlayerId;
-            await _scheduleRepository.SaveChangesAsync();
+            if (result.Status == ServiceStatus.NotFound)
+                return ServiceResult<GameEventScheduleDto>.NotFound();
+            if (result.Status == ServiceStatus.Invalid)
+                return ServiceResult<GameEventScheduleDto>.Invalid(result.Error!);
 
-            return ServiceResult<GameEventScheduleDto>.Ok(_mapper.Map<GameEventScheduleDto>(finalSlot));
+            var refreshedSlot = await _scheduleRepository.GetByIdWithMatchAsync(scheduleId);
+            return ServiceResult<GameEventScheduleDto>.Ok(_mapper.Map<GameEventScheduleDto>(refreshedSlot));
         }
 
         private async Task<(Player? ExistingPlayer, string? Error)> ValidateEntryAsync(EventPlayerEntryDto entry)

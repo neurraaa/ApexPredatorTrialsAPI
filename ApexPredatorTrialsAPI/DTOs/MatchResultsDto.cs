@@ -15,7 +15,6 @@ namespace ApexPredatorTrialsAPI.DTOs
         public int LoserDeaths { get; set; }
         public int LoserKills { get; set; }
         public int NestsDestroyed { get; set; }
-        public DateTime DateTimeConcluded { get; set; }
     }
     public class MatchResultsCreateDto
     {

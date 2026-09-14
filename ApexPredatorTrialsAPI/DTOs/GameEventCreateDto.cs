@@ -16,6 +16,7 @@ namespace ApexPredatorTrialsAPI.DTOs
     {
         [Required] public EventPlayerEntryDto Hunter { get; set; } = null!;
         [Required] public EventPlayerEntryDto Human { get; set; } = null!;
+        public int MapId { get; set; }
     }
 
     public class EventPlayerEntryDto

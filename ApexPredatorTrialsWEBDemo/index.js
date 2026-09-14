@@ -1,19 +1,23 @@
 const output = document.getElementById('output');
 function showOutput(data) { output.textContent = JSON.stringify(data, null, 2); }
 
-async function renderEvent(event) {
-  const wrapper = document.createElement('div');
-
-  let statusLine = `<p>Current round: <strong>${event.currentRound || event.startingRound || 'TBD'}</strong></p>`;
+async function isEventConcluded(event) {
   try {
     const bracket = await apiFetch(`/events/${event.id}/bracket`);
     const finalSlot = bracket.find((s) => s.round === 'Final');
-    if (finalSlot && finalSlot.winnerPlayerId) {
-      statusLine = `<p><strong>Event concluded</strong></p>`;
-    }
+    return !!(finalSlot && finalSlot.winnerPlayerId);
   } catch {
-    // Keep the default "current round" line if the bracket can't be loaded.
+    // Treat as ongoing if the bracket can't be loaded.
+    return false;
   }
+}
+
+function renderEvent(event, concluded) {
+  const wrapper = document.createElement('div');
+
+  const statusLine = concluded
+    ? `<p><strong>Event concluded</strong></p>`
+    : `<p>Current round: <strong>${event.currentRound || event.startingRound || 'TBD'}</strong></p>`;
 
   wrapper.innerHTML = `
     <h3><a href="event.html?id=${event.id}">${event.title}</a> (${event.region})</h3>
@@ -48,8 +52,19 @@ async function loadEvents() {
       container.textContent = 'No events yet.';
       return;
     }
-    for (const event of events) {
-      container.appendChild(await renderEvent(event));
+
+    // Ongoing events sort first (by start date), concluded events last (by end date).
+    const eventsWithStatus = await Promise.all(
+      events.map(async (event) => ({ event, concluded: await isEventConcluded(event) }))
+    );
+    eventsWithStatus.sort((a, b) => {
+      if (a.concluded !== b.concluded) return a.concluded ? 1 : -1;
+      const dateField = a.concluded ? 'endDate' : 'startDate';
+      return new Date(a.event[dateField]) - new Date(b.event[dateField]);
+    });
+
+    for (const { event, concluded } of eventsWithStatus) {
+      container.appendChild(renderEvent(event, concluded));
     }
   } catch (err) {
     container.textContent = `Failed to load events: ${err.message}`;
@@ -201,23 +216,43 @@ function createPlayerEntryFields(role) {
   return { element: wrapper, getEntry };
 }
 
-function createMatchupFields(index) {
+function createMatchupFields(index, maps) {
   const fieldset = document.createElement('fieldset');
-  fieldset.innerHTML = `<legend>Matchup ${index}</legend>`;
+  fieldset.innerHTML = `
+    <legend>Matchup ${index}</legend>
+    <label>Map:
+      <select class="matchup-map">
+        ${maps.map((m) => `<option value="${m.id}">${m.name}</option>`).join('')}
+      </select>
+    </label>
+  `;
+  const mapSelect = fieldset.querySelector('.matchup-map');
   const hunter = createPlayerEntryFields('Hunter');
   const human = createPlayerEntryFields('Human');
   fieldset.appendChild(hunter.element);
   fieldset.appendChild(human.element);
   return {
     element: fieldset,
-    getMatchup: () => ({ hunter: hunter.getEntry(), human: human.getEntry() })
+    getMatchup: () => ({ hunter: hunter.getEntry(), human: human.getEntry(), mapId: Number(mapSelect.value) })
   };
 }
 
-function renderCreateEventForm() {
+async function renderCreateEventForm() {
   const placeholder = document.getElementById('create-event-placeholder');
   if (!getUser()) {
     placeholder.innerHTML = '';
+    return;
+  }
+
+  let maps = [];
+  try {
+    maps = await apiFetch('/maps');
+  } catch (err) {
+    placeholder.innerHTML = `<p>Could not load maps: ${err.message}</p>`;
+    return;
+  }
+  if (maps.length === 0) {
+    placeholder.innerHTML = '<p>No maps configured yet — an event cannot be created without at least one map.</p>';
     return;
   }
 
@@ -255,7 +290,7 @@ function renderCreateEventForm() {
     matchupsContainer.innerHTML = '';
     matchups = [];
     for (let i = 0; i < requiredCount; i++) {
-      const matchup = createMatchupFields(i + 1);
+      const matchup = createMatchupFields(i + 1, maps);
       matchups.push(matchup);
       matchupsContainer.appendChild(matchup.element);
     }

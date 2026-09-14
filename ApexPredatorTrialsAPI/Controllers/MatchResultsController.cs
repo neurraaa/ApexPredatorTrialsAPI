@@ -29,6 +29,13 @@ namespace ApexPredatorTrialsAPI.Controllers
             return result is null ? NotFound() : Ok(result);
         }
 
+        [HttpGet("by-match/{matchId}")]
+        public async Task<ActionResult<MatchResultsDto>> GetByMatch(int matchId)
+        {
+            var result = await _service.GetByMatchIdAsync(matchId);
+            return result is null ? NotFound() : Ok(result);
+        }
+
         [HttpPost]
         public async Task<ActionResult<MatchResultsDto>> Create(MatchResultsCreateDto dto)
         {
@@ -48,6 +55,28 @@ namespace ApexPredatorTrialsAPI.Controllers
                     _logger.LogInformation("Created match result {MatchResultId}", result.Data!.Id);
 
                     return CreatedAtAction(nameof(GetById), new { id = result.Data!.Id }, result.Data);
+            }
+        }
+
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Update(int id, MatchResultsCreateDto dto)
+        {
+            var result = await _service.UpdateAsync(id, dto);
+
+            switch (result.Status)
+            {
+                case ServiceStatus.NotFound:
+                    _logger.LogWarning("Update failed: Match Result ({MatchResultId}) not found", id);
+
+                    return NotFound();
+                case ServiceStatus.Invalid:
+                    _logger.LogWarning("Failed to update match result {MatchResultId}: {Error}", id, result.Error);
+
+                    return BadRequest(result.Error);
+                default:
+                    _logger.LogInformation("Match Result ({MatchResultId}) updated", id);
+
+                    return Ok(result.Data);
             }
         }
 

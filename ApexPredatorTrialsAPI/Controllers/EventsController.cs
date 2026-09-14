@@ -121,25 +121,25 @@ namespace ApexPredatorTrialsAPI.Controllers
             }
         }
 
-        [HttpPost("{id}/conclude")]
-        public async Task<ActionResult<GameEventScheduleDto>> Conclude(int id, ConcludeEventDto dto)
+        [HttpPut("{id}/schedules/{scheduleId}/results")]
+        public async Task<ActionResult<GameEventScheduleDto>> SetMatchResult(int id, int scheduleId, ScheduleMatchResultDto dto)
         {
             if (!await CanManageEventAsync(id)) return Forbid();
 
-            var result = await _service.ConcludeAsync(id, dto);
+            var result = await _service.SetMatchResultAsync(id, scheduleId, dto);
 
             switch (result.Status)
             {
                 case ServiceStatus.NotFound:
-                    _logger.LogWarning("Conclude failed: Event ({EventId}) not found", id);
+                    _logger.LogWarning("Set match result failed: Event ({EventId}) or Schedule ({ScheduleId}) not found", id, scheduleId);
 
                     return NotFound();
                 case ServiceStatus.Invalid:
-                    _logger.LogWarning("Conclude failed for Event ({EventId}): {Error}", id, result.Error);
+                    _logger.LogWarning("Set match result failed for Event ({EventId}) Schedule ({ScheduleId}): {Error}", id, scheduleId, result.Error);
 
                     return BadRequest(result.Error);
                 default:
-                    _logger.LogInformation("Event ({EventId}) concluded, champion Player {WinnerId}", id, result.Data!.WinnerPlayerId);
+                    _logger.LogInformation("Recorded match result for Event ({EventId}) Schedule ({ScheduleId})", id, scheduleId);
 
                     return Ok(result.Data);
             }

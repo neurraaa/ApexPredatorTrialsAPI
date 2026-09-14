@@ -1,4 +1,4 @@
-﻿using ApexPredatorTrialsAPI.DTOs;
+using ApexPredatorTrialsAPI.DTOs;
 using ApexPredatorTrialsAPI.Services;
 
 namespace ApexPredatorTrialsAPI.Interfaces
@@ -12,6 +12,6 @@ namespace ApexPredatorTrialsAPI.Interfaces
         Task<bool> UpdateAsync(int id, GameEventWriteDto dto);
         Task<bool> DeleteAsync(int id);
         Task<ServiceResult<GameEventDto>> AdvancePhaseAsync(int eventId, AdvancePhaseDto dto);
-        Task<ServiceResult<GameEventScheduleDto>> ConcludeAsync(int eventId, ConcludeEventDto dto);
+        Task<ServiceResult<GameEventScheduleDto>> SetMatchResultAsync(int eventId, int scheduleId, ScheduleMatchResultDto dto);
     }
 }

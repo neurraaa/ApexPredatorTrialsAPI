@@ -98,8 +98,7 @@ namespace ApexPredatorTrialsUNIT.Controllers
             var dto = new AdvancePhaseDto
             {
                 NextRound = "Semi-Final",
-                Winners = new() { new ScheduleWinnerDto { ScheduleId = 1, WinnerPlayerId = 1 } },
-                NextMatchups = new() { new NextMatchupDto { HunterScheduleId = 1, HumanScheduleId = 1 } }
+                NextMatchups = new() { new NextMatchupDto { HunterScheduleId = 1, HumanScheduleId = 1, MapId = 1 } }
             };
             var updated = new GameEventDto { Id = 5, CurrentRound = "Semi-Final" };
             _serviceMock.Setup(s => s.AdvancePhaseAsync(5, dto)).ReturnsAsync(ServiceResult<GameEventDto>.Ok(updated));
@@ -134,37 +133,37 @@ namespace ApexPredatorTrialsUNIT.Controllers
         }
 
         [Fact]
-        public async Task Conclude_Valid_ReturnsOk()
+        public async Task SetMatchResult_Valid_ReturnsOk()
         {
-            var dto = new ConcludeEventDto { WinnerPlayerId = 2 };
-            var finalSlot = new GameEventScheduleDto { Id = 3, EventId = 5, Round = "Final", WinnerPlayerId = 2 };
-            _serviceMock.Setup(s => s.ConcludeAsync(5, dto)).ReturnsAsync(ServiceResult<GameEventScheduleDto>.Ok(finalSlot));
+            var dto = new ScheduleMatchResultDto { WinnerId = 1, LoserId = 2 };
+            var updatedSlot = new GameEventScheduleDto { Id = 3, EventId = 5, Round = "Final", WinnerPlayerId = 1 };
+            _serviceMock.Setup(s => s.SetMatchResultAsync(5, 3, dto)).ReturnsAsync(ServiceResult<GameEventScheduleDto>.Ok(updatedSlot));
 
-            var result = await _controller.Conclude(5, dto);
+            var result = await _controller.SetMatchResult(5, 3, dto);
 
             var ok = Assert.IsType<OkObjectResult>(result.Result);
-            Assert.Equal(finalSlot, ok.Value);
+            Assert.Equal(updatedSlot, ok.Value);
         }
 
         [Fact]
-        public async Task Conclude_Missing_ReturnsNotFound()
+        public async Task SetMatchResult_Missing_ReturnsNotFound()
         {
-            var dto = new ConcludeEventDto { WinnerPlayerId = 2 };
-            _serviceMock.Setup(s => s.ConcludeAsync(99, dto)).ReturnsAsync(ServiceResult<GameEventScheduleDto>.NotFound());
+            var dto = new ScheduleMatchResultDto { WinnerId = 1, LoserId = 2 };
+            _serviceMock.Setup(s => s.SetMatchResultAsync(5, 99, dto)).ReturnsAsync(ServiceResult<GameEventScheduleDto>.NotFound());
 
-            var result = await _controller.Conclude(99, dto);
+            var result = await _controller.SetMatchResult(5, 99, dto);
 
             Assert.IsType<NotFoundResult>(result.Result);
         }
 
         [Fact]
-        public async Task Conclude_NotAtFinal_ReturnsBadRequest()
+        public async Task SetMatchResult_Invalid_ReturnsBadRequest()
         {
-            var dto = new ConcludeEventDto { WinnerPlayerId = 2 };
-            _serviceMock.Setup(s => s.ConcludeAsync(5, dto))
-                .ReturnsAsync(ServiceResult<GameEventScheduleDto>.Invalid("The event must reach the Final round before it can be concluded."));
+            var dto = new ScheduleMatchResultDto { WinnerId = 1, LoserId = 1 };
+            _serviceMock.Setup(s => s.SetMatchResultAsync(5, 3, dto))
+                .ReturnsAsync(ServiceResult<GameEventScheduleDto>.Invalid("Winner and Loser cannot be the same player."));
 
-            var result = await _controller.Conclude(5, dto);
+            var result = await _controller.SetMatchResult(5, 3, dto);
 
             Assert.IsType<BadRequestObjectResult>(result.Result);
         }
