@@ -13,6 +13,7 @@ namespace ApexPredatorTrialsAPI.DTOs
         public string? HunterPlayerName { get; set; }
         public int? HumanPlayerId { get; set; }
         public string? HumanPlayerName { get; set; }
+        public int? WinnerPlayerId { get; set; }
     }
     public class GameEventScheduleWriteDto
     {

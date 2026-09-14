@@ -1,9 +1,25 @@
 const API_BASE = 'http://localhost:5050/api';
+const ROUND_ORDER = ['Quarter-Final', 'Semi-Final', 'Final'];
 
 function getToken() { return localStorage.getItem('token'); }
 function getUser() {
   const stored = localStorage.getItem('user');
   return stored ? JSON.parse(stored) : null;
+}
+function isAdmin() {
+  const user = getUser();
+  return !!user && user.role === 'Admin';
+}
+
+function playerLink(id, name) {
+  if (!id) return 'TBD';
+  return `<a href="player.html?id=${id}">${name}</a>`;
+}
+
+function matchupLabel(slot) {
+  const hunter = playerLink(slot.hunterPlayerId, slot.hunterPlayerName);
+  const human = playerLink(slot.humanPlayerId, slot.humanPlayerName);
+  return `${hunter} (Hunter) vs ${human} (Human)`;
 }
 function setSession(token, user) {
   localStorage.setItem('token', token);
@@ -20,13 +36,17 @@ async function apiFetch(path, options = {}) {
   if (token) headers['Authorization'] = `Bearer ${token}`;
  
   const response = await fetch(`${API_BASE}${path}`, { ...options, headers });
-  const data = response.status === 204 ? null : await response.json().catch(() => null);
- 
+  if (response.status === 204) return null;
+
+  const text = await response.text();
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; } catch { data = null; }
+
   if (!response.ok) {
     const message = data && data.error ? data.error
       : typeof data === 'string' ? data
       : data ? JSON.stringify(data)
-      : response.statusText;
+      : text || response.statusText;
     throw new Error(message);
   }
   return data;

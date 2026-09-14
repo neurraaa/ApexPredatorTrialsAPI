@@ -9,5 +9,6 @@ namespace ApexPredatorTrialsAPI.Interfaces
         Task<Player?> GetByIdWithDetailsAsync(int id);
         Task<Player?> GetByUserIdAsync(int userId);
         Task<List<Player>> GetByRegionAsync(string region);
+        Task<List<Player>> SearchByNameAsync(string term);
     }
 }

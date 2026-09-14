@@ -49,6 +49,28 @@ namespace ApexPredatorTrialsUNIT.Controllers
         }
 
         [Fact]
+        public async Task SearchPlayers_ReturnsOkWithMatches()
+        {
+            var players = new List<PlayerDto> { new() { Id = 1, Name = "Neura" } };
+            _serviceMock.Setup(s => s.SearchAsync("Neu")).ReturnsAsync(players);
+
+            var result = await _controller.SearchPlayers("Neu");
+
+            var ok = Assert.IsType<OkObjectResult>(result.Result);
+            Assert.Equal(players, ok.Value);
+        }
+
+        [Fact]
+        public async Task SearchPlayers_BlankName_ReturnsOkWithEmptyList()
+        {
+            var result = await _controller.SearchPlayers("   ");
+
+            var ok = Assert.IsType<OkObjectResult>(result.Result);
+            var list = Assert.IsType<List<PlayerDto>>(ok.Value);
+            Assert.Empty(list);
+        }
+
+        [Fact]
         public async Task CreatePlayer_ReturnsCreatedAtAction()
         {
             var writeDto = new PlayerWriteDto { Name = "Neura", Platform = "Steam", Region = "EU" };

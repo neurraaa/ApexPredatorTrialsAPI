@@ -1,4 +1,5 @@
 ﻿using ApexPredatorTrialsAPI.DTOs;
+using ApexPredatorTrialsAPI.Services;
 
 namespace ApexPredatorTrialsAPI.Interfaces
 {
@@ -7,8 +8,9 @@ namespace ApexPredatorTrialsAPI.Interfaces
         Task<List<GameEventDto>> GetAllAsync();
         Task<GameEventDto?> GetByIdAsync(int id);
         Task<List<GameEventScheduleDto>> GetBracketAsync(int eventId);
-        Task<GameEventDto> CreateAsync(GameEventWriteDto dto, int organizerId);
+        Task<ServiceResult<GameEventDto>> CreateAsync(GameEventCreateDto dto, int organizerId);
         Task<bool> UpdateAsync(int id, GameEventWriteDto dto);
         Task<bool> DeleteAsync(int id);
+        Task<ServiceResult<GameEventDto>> AdvancePhaseAsync(int eventId, AdvancePhaseDto dto);
     }
 }

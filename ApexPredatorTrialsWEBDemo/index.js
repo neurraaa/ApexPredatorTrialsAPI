@@ -1,80 +1,29 @@
-const ROUND_ORDER = ['Quarter-Final', 'Semi-Final', 'Final'];
-
 const output = document.getElementById('output');
 function showOutput(data) { output.textContent = JSON.stringify(data, null, 2); }
 
-function playerLink(id, name) {
-  if (!id) return 'TBD';
-  return `<a href="player.html?id=${id}">${name}</a>`;
-}
-
-function matchupLabel(slot) {
-  const hunter = playerLink(slot.hunterPlayerId, slot.hunterPlayerName);
-  const human = playerLink(slot.humanPlayerId, slot.humanPlayerName);
-  return `${hunter} (Hunter) vs ${human} (Human)`;
-}
-
-function pickCurrentRound(slots) {
-  for (const round of ROUND_ORDER) {
-    const roundSlots = slots.filter((s) => s.round === round);
-    if (roundSlots.length > 0 && roundSlots.some((s) => !s.matchId)) {
-      return round;
-    }
-  }
-  return ROUND_ORDER[ROUND_ORDER.length - 1];
-}
-
-async function registerForEvent(eventId) {
-  try {
-    const myPlayer = await apiFetch('/players/me');
-    const result = await apiFetch('/event-registrations', {
-      method: 'POST',
-      body: JSON.stringify({ eventId, playerId: myPlayer.id })
-    });
-    showOutput(result);
-  } catch (err) {
-    showOutput({ error: err.message });
-  }
-}
-
-async function renderEvent(event) {
+function renderEvent(event) {
   const wrapper = document.createElement('div');
-  wrapper.innerHTML = `<h3>${event.title} (${event.region})</h3><p>${event.startDate} - ${event.endDate}</p>`;
- 
-  try {
-    const bracket = await apiFetch(`/events/${event.id}/bracket`);
- 
-    if (bracket.length === 0) {
-      wrapper.innerHTML += `<p>No bracket set up yet for this event.</p>`;
-    } else {
-      const currentRound = pickCurrentRound(bracket);
-      const currentSlots = bracket.filter((s) => s.round === currentRound);
- 
-      const list = document.createElement('ul');
-      currentSlots.forEach((slot) => {
-        const li = document.createElement('li');
-        // innerHTML, not textContent - matchupLabel returns real <a> tags
-        // that need to actually render as links, not escaped text.
-        li.innerHTML = `[${slot.round}] ${matchupLabel(slot)}`;
-        list.appendChild(li);
-      });
- 
-      const roundLabel = document.createElement('p');
-      roundLabel.innerHTML = `<strong>Current round: ${currentRound}</strong>`;
-      wrapper.appendChild(roundLabel);
-      wrapper.appendChild(list);
-    }
-  } catch (err) {
-    wrapper.innerHTML += `<p>Could not load bracket: ${err.message}</p>`;
+  wrapper.innerHTML = `
+    <h3><a href="event.html?id=${event.id}">${event.title}</a> (${event.region})</h3>
+    <p>${event.startDate} - ${event.endDate}</p>
+    <p>Current round: <strong>${event.currentRound || event.startingRound || 'TBD'}</strong></p>
+  `;
+
+  if (isAdmin()) {
+    const deleteBtn = document.createElement('button');
+    deleteBtn.textContent = 'Delete event';
+    deleteBtn.addEventListener('click', async () => {
+      if (!confirm(`Delete event "${event.title}"?`)) return;
+      try {
+        await apiFetch(`/events/${event.id}`, { method: 'DELETE' });
+        loadEvents();
+      } catch (err) {
+        showOutput({ error: err.message });
+      }
+    });
+    wrapper.appendChild(deleteBtn);
   }
- 
-  if (getUser()) {
-    const registerBtn = document.createElement('button');
-    registerBtn.textContent = 'Register for this event';
-    registerBtn.addEventListener('click', () => registerForEvent(event.id));
-    wrapper.appendChild(registerBtn);
-  }
- 
+
   return wrapper;
 }
 
@@ -88,33 +37,193 @@ async function loadEvents() {
       return;
     }
     for (const event of events) {
-      container.appendChild(await renderEvent(event));
+      container.appendChild(renderEvent(event));
     }
   } catch (err) {
     container.textContent = `Failed to load events: ${err.message}`;
   }
 }
 
+const REGIONS = ['EU', 'NA', 'SA', 'AP'];
+
+function createPlayerEntryFields(role) {
+  const wrapper = document.createElement('fieldset');
+  wrapper.innerHTML = `
+    <legend>${role}</legend>
+    <div class="entry-search-row">
+      <input type="text" class="entry-search" placeholder="Search existing player by name">
+      <button type="button" class="entry-search-btn">Search</button>
+      <button type="button" class="entry-clear-btn" style="display:none">Use a new player instead</button>
+    </div>
+    <ul class="entry-search-results"></ul>
+    <p class="entry-selected" style="display:none"></p>
+    <div class="entry-new-fields">
+      <input type="text" class="entry-name" placeholder="Player name" required>
+      <input type="text" class="entry-platform" placeholder="Platform" required>
+      <select class="entry-region">
+        ${REGIONS.map((r) => `<option value="${r}">${r}</option>`).join('')}
+      </select>
+    </div>
+    <div class="entry-stats">
+      <label>Hunter rank: <input type="text" class="stat-hunterRank" required></label>
+      <label>Hunter hours: <input type="number" class="stat-hunterHoursPlayed" value="0" min="0" required></label>
+      <label>Mutation level: <input type="number" class="stat-mutationLevel" value="1" min="1" max="3" required></label>
+      <label>Human rank: <input type="text" class="stat-humanRank" required></label>
+      <label>Human hours: <input type="number" class="stat-humanHoursPlayed" value="0" min="0" required></label>
+      <label>Legend level: <input type="number" class="stat-legendLevel" value="1" min="1" max="250" required></label>
+    </div>
+  `;
+
+  let selectedPlayerId = null;
+  const searchInput = wrapper.querySelector('.entry-search');
+  const searchBtn = wrapper.querySelector('.entry-search-btn');
+  const clearBtn = wrapper.querySelector('.entry-clear-btn');
+  const resultsList = wrapper.querySelector('.entry-search-results');
+  const selectedLabel = wrapper.querySelector('.entry-selected');
+  const newFields = wrapper.querySelector('.entry-new-fields');
+  const nameInput = wrapper.querySelector('.entry-name');
+  const platformInput = wrapper.querySelector('.entry-platform');
+
+  async function runSearch() {
+    const term = searchInput.value.trim();
+    resultsList.innerHTML = '';
+    if (!term) return;
+    try {
+      const matches = await apiFetch(`/players/search?name=${encodeURIComponent(term)}`);
+      if (matches.length === 0) {
+        resultsList.innerHTML = '<li>No matches.</li>';
+        return;
+      }
+      matches.forEach((player) => {
+        const li = document.createElement('li');
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = `${player.name} (${player.platform}, ${player.region})`;
+        btn.addEventListener('click', () => selectExisting(player));
+        li.appendChild(btn);
+        resultsList.appendChild(li);
+      });
+    } catch (err) {
+      resultsList.innerHTML = `<li>Search failed: ${err.message}</li>`;
+    }
+  }
+
+  async function selectExisting(player) {
+    selectedPlayerId = player.id;
+    selectedLabel.style.display = '';
+    selectedLabel.textContent = `Updating stats for existing player: ${player.name}`;
+    newFields.style.display = 'none';
+    resultsList.innerHTML = '';
+    searchInput.style.display = 'none';
+    searchBtn.style.display = 'none';
+    clearBtn.style.display = '';
+
+    try {
+      const profile = await apiFetch(`/players/${player.id}/profile`);
+      if (profile.stats) {
+        wrapper.querySelector('.stat-hunterRank').value = profile.stats.hunterRank;
+        wrapper.querySelector('.stat-hunterHoursPlayed').value = profile.stats.hunterHoursPlayed;
+        wrapper.querySelector('.stat-mutationLevel').value = profile.stats.mutationLevel;
+        wrapper.querySelector('.stat-humanRank').value = profile.stats.humanRank;
+        wrapper.querySelector('.stat-humanHoursPlayed').value = profile.stats.humanHoursPlayed;
+        wrapper.querySelector('.stat-legendLevel').value = profile.stats.legendLevel;
+      }
+    } catch (err) {
+      showOutput({ error: err.message });
+    }
+  }
+
+  function clearSelection() {
+    selectedPlayerId = null;
+    selectedLabel.style.display = 'none';
+    newFields.style.display = '';
+    searchInput.style.display = '';
+    searchBtn.style.display = '';
+    clearBtn.style.display = 'none';
+    searchInput.value = '';
+  }
+
+  searchBtn.addEventListener('click', runSearch);
+  clearBtn.addEventListener('click', clearSelection);
+
+  function getEntry() {
+    const stats = {
+      hunterRank: wrapper.querySelector('.stat-hunterRank').value,
+      hunterHoursPlayed: Number(wrapper.querySelector('.stat-hunterHoursPlayed').value),
+      mutationLevel: Number(wrapper.querySelector('.stat-mutationLevel').value),
+      humanRank: wrapper.querySelector('.stat-humanRank').value,
+      humanHoursPlayed: Number(wrapper.querySelector('.stat-humanHoursPlayed').value),
+      legendLevel: Number(wrapper.querySelector('.stat-legendLevel').value)
+    };
+
+    if (selectedPlayerId) return { playerId: selectedPlayerId, stats };
+
+    return {
+      name: nameInput.value,
+      platform: platformInput.value,
+      region: wrapper.querySelector('.entry-region').value,
+      stats
+    };
+  }
+
+  return { element: wrapper, getEntry };
+}
+
+function createMatchupFields(index) {
+  const fieldset = document.createElement('fieldset');
+  fieldset.innerHTML = `<legend>Matchup ${index}</legend>`;
+  const hunter = createPlayerEntryFields('Hunter');
+  const human = createPlayerEntryFields('Human');
+  fieldset.appendChild(hunter.element);
+  fieldset.appendChild(human.element);
+  return {
+    element: fieldset,
+    getMatchup: () => ({ hunter: hunter.getEntry(), human: human.getEntry() })
+  };
+}
+
 function renderCreateEventForm() {
   const placeholder = document.getElementById('create-event-placeholder');
-  if (!getUser()) return;
- 
+  if (!getUser()) {
+    placeholder.innerHTML = '';
+    return;
+  }
+
   placeholder.innerHTML = `
     <h2>Create Event</h2>
     <form id="create-event-form">
       <input type="text" id="event-title" placeholder="Title" required>
       <select id="event-region">
-        <option value="EU">EU</option>
-        <option value="NA">NA</option>
-        <option value="SA">SA</option>
-        <option value="AP">AP</option>
+        ${REGIONS.map((r) => `<option value="${r}">${r}</option>`).join('')}
       </select>
       <label>Start: <input type="date" id="event-start" required></label>
       <label>End: <input type="date" id="event-end" required></label>
+      <label>Starting round:
+        <select id="event-starting-round">
+          <option value="Quarter-Final">Quarter-Final</option>
+          <option value="Semi-Final">Semi-Final</option>
+        </select>
+      </label>
+      <h3>Matchups</h3>
+      <p>Add every matchup competing in the starting round. Search for an existing player to update their stats, or leave the search empty and fill in a brand-new player.</p>
+      <div id="matchups-container"></div>
+      <button type="button" id="add-matchup-btn">Add matchup</button>
       <button type="submit">Create Event</button>
     </form>
   `;
- 
+
+  const matchupsContainer = document.getElementById('matchups-container');
+  const matchups = [];
+
+  function addMatchup() {
+    const matchup = createMatchupFields(matchups.length + 1);
+    matchups.push(matchup);
+    matchupsContainer.appendChild(matchup.element);
+  }
+
+  document.getElementById('add-matchup-btn').addEventListener('click', addMatchup);
+  addMatchup();
+
   document.getElementById('create-event-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     try {
@@ -124,7 +233,9 @@ function renderCreateEventForm() {
           title: document.getElementById('event-title').value,
           region: document.getElementById('event-region').value,
           startDate: document.getElementById('event-start').value,
-          endDate: document.getElementById('event-end').value
+          endDate: document.getElementById('event-end').value,
+          startingRound: document.getElementById('event-starting-round').value,
+          matchups: matchups.map((m) => m.getMatchup())
         })
       });
       showOutput(result);
@@ -134,7 +245,7 @@ function renderCreateEventForm() {
     }
   });
 }
- 
+
 renderHeader();
 renderCreateEventForm();
 loadEvents();

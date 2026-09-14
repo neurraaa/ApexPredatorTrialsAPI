@@ -1,5 +1,6 @@
 ﻿using ApexPredatorTrialsAPI.DTOs;
 using ApexPredatorTrialsAPI.Interfaces;
+using ApexPredatorTrialsAPI.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -41,7 +42,7 @@ namespace ApexPredatorTrialsAPI.Controllers
             Ok(await _service.GetBracketAsync(id));
 
         [HttpPost]
-        public async Task<ActionResult<GameEventDto>> Create(GameEventWriteDto dto)
+        public async Task<ActionResult<GameEventDto>> Create(GameEventCreateDto dto)
         {
             var userIdClaim = User.FindFirstValue(JwtRegisteredClaimNames.Sub)
                 ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -49,11 +50,18 @@ namespace ApexPredatorTrialsAPI.Controllers
             if (userIdClaim is null || !int.TryParse(userIdClaim, out var organizerId))
                 return Unauthorized();
 
-            var ev = await _service.CreateAsync(dto, organizerId);
+            var result = await _service.CreateAsync(dto, organizerId);
 
-            _logger.LogInformation("Event {EventId} created ({Title}) by User {OrganizerId}", ev.Id, ev.Title, organizerId);
+            if (result.Status == ServiceStatus.Invalid)
+            {
+                _logger.LogWarning("Failed to create event: {Error}", result.Error);
 
-            return CreatedAtAction(nameof(GetById), new { id = ev.Id }, ev);
+                return BadRequest(result.Error);
+            }
+
+            _logger.LogInformation("Event {EventId} created ({Title}) by User {OrganizerId}", result.Data!.Id, result.Data.Title, organizerId);
+
+            return CreatedAtAction(nameof(GetById), new { id = result.Data!.Id }, result.Data);
         }
 
         [HttpPut("{id}")]
@@ -86,6 +94,29 @@ namespace ApexPredatorTrialsAPI.Controllers
             _logger.LogInformation("Event ({EventId}) deleted", id);
 
             return NoContent();
+        }
+
+        [HttpPost("{id}/advance-phase")]
+        [Authorize(Roles = "Admin")]
+        public async Task<ActionResult<GameEventDto>> AdvancePhase(int id, AdvancePhaseDto dto)
+        {
+            var result = await _service.AdvancePhaseAsync(id, dto);
+
+            switch (result.Status)
+            {
+                case ServiceStatus.NotFound:
+                    _logger.LogWarning("Advance phase failed: Event ({EventId}) not found", id);
+
+                    return NotFound();
+                case ServiceStatus.Invalid:
+                    _logger.LogWarning("Advance phase failed for Event ({EventId}): {Error}", id, result.Error);
+
+                    return BadRequest(result.Error);
+                default:
+                    _logger.LogInformation("Event ({EventId}) advanced to round {Round}", id, result.Data!.CurrentRound);
+
+                    return Ok(result.Data);
+            }
         }
     }
 }

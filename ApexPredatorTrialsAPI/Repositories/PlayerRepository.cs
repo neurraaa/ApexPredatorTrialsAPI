@@ -23,5 +23,8 @@ namespace ApexPredatorTrialsAPI.Repositories
 
         public async Task<List<Player>> GetByRegionAsync(string region) =>
             await DbSet.Where(p => p.Region.ToUpper() == region.ToUpper()).ToListAsync();
+
+        public async Task<List<Player>> SearchByNameAsync(string term) =>
+            await DbSet.Where(p => p.Name.ToUpper().Contains(term.ToUpper())).ToListAsync();
     }
 }

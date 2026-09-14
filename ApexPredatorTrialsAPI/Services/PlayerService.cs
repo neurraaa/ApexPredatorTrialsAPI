@@ -40,6 +40,9 @@ namespace ApexPredatorTrialsAPI.Services
         public async Task<List<PlayerDto>> GetByRegionAsync(string region) =>
             _mapper.Map<List<PlayerDto>>(await _repository.GetByRegionAsync(region));
 
+        public async Task<List<PlayerDto>> SearchAsync(string term) =>
+            _mapper.Map<List<PlayerDto>>(await _repository.SearchByNameAsync(term));
+
         public async Task<PlayerDto> CreateAsync(PlayerWriteDto dto)
         {
             var player = _mapper.Map<Player>(dto);

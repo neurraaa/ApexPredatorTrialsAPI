@@ -108,6 +108,24 @@ namespace ApexPredatorTrialsAPI.Data
                 .HasForeignKey(s => s.NextScheduleId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            modelBuilder.Entity<GameEventSchedule>()
+                .HasOne(s => s.HunterPlayer)
+                .WithMany()
+                .HasForeignKey(s => s.HunterPlayerId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<GameEventSchedule>()
+                .HasOne(s => s.HumanPlayer)
+                .WithMany()
+                .HasForeignKey(s => s.HumanPlayerId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<GameEventSchedule>()
+                .HasOne(s => s.WinnerPlayer)
+                .WithMany()
+                .HasForeignKey(s => s.WinnerPlayerId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             modelBuilder.Entity<Log>()
                 .HasIndex(l => new { l.ClientAddress, l.Timestamp });
 

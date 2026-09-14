@@ -60,6 +60,11 @@ namespace ApexPredatorTrialsAPI.Controllers
         public async Task<ActionResult<IEnumerable<PlayerDto>>> GetPlayersByRegion(string region) =>
             Ok(await _service.GetByRegionAsync(region));
 
+        [HttpGet("search")]
+        [AllowAnonymous]
+        public async Task<ActionResult<IEnumerable<PlayerDto>>> SearchPlayers([FromQuery] string name) =>
+            Ok(string.IsNullOrWhiteSpace(name) ? new List<PlayerDto>() : await _service.SearchAsync(name));
+
         [HttpPost]
         [Authorize(Roles = "Admin")]
         public async Task<ActionResult<PlayerDto>> CreatePlayer(PlayerWriteDto dto)

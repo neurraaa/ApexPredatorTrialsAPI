@@ -9,6 +9,7 @@ namespace ApexPredatorTrialsAPI.Interfaces
         Task<PlayerDetailDto?> GetDetailByIdAsync(int id);
         Task<PlayerDto?> GetByUserIdAsync(int userId);
         Task<List<PlayerDto>> GetByRegionAsync(string region);
+        Task<List<PlayerDto>> SearchAsync(string term);
         Task<PlayerDto> CreateAsync(PlayerWriteDto dto);
         Task<bool> UpdateAsync(int id, PlayerWriteDto dto);
         Task<bool> DeleteAsync(int id);
