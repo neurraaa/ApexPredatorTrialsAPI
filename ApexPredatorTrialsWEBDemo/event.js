@@ -99,7 +99,7 @@ function renderConcludeSection(section) {
 
   const champion = championName(finalSlot);
   if (champion) {
-    section.innerHTML = `<h3>Event concluded</h3><p>&#127942; Champion: <strong>${champion}</strong></p>`;
+    section.innerHTML = `<h3>&#127942; ${champion} won!</h3>`;
     return;
   }
 
@@ -211,8 +211,9 @@ function renderAdvancePhaseSection() {
   const pairingContainer = document.createElement('div');
   const pairingHeading = document.createElement('h4');
   pairingHeading.textContent = 'Next round pairings';
+  const maxPairings = currentSlots.length / 2;
   const pairingHint = document.createElement('p');
-  pairingHint.textContent = `Pair up the declared winners into ${nextRound} matchups (one Hunter side, one Human side).`;
+  pairingHint.textContent = `Pair up the declared winners into ${nextRound} matchups (one Hunter side, one Human side). ${currentSlots.length} winners means exactly ${maxPairings} ${maxPairings === 1 ? 'matchup' : 'matchups'} next round.`;
   pairingContainer.appendChild(pairingHeading);
   pairingContainer.appendChild(pairingHint);
 
@@ -240,13 +241,9 @@ function renderAdvancePhaseSection() {
     pairings.push({ hunterSelect, humanSelect });
   }
 
-  const addPairingBtn = document.createElement('button');
-  addPairingBtn.type = 'button';
-  addPairingBtn.textContent = 'Add pairing';
-  addPairingBtn.addEventListener('click', renderPairingRow);
-  pairingContainer.appendChild(addPairingBtn);
-
-  for (let i = 0; i < Math.ceil(currentSlots.length / 2); i++) renderPairingRow();
+  // Every current-round winner must advance into exactly one next-round matchup, so with N winners
+  // there are always exactly N/2 pairings possible — no manual "add pairing" beyond that.
+  for (let i = 0; i < maxPairings; i++) renderPairingRow();
 
   form.appendChild(pairingContainer);
 
@@ -285,12 +282,15 @@ function renderAdvancePhaseSection() {
   section.appendChild(form);
 }
 
-function renderAdminPanel() {
+function renderManagePanel() {
   document.getElementById('admin-panel').style.display = '';
   renderEditEventForm();
   renderAdvancePhaseSection();
 
-  document.getElementById('delete-event-btn').onclick = async () => {
+  const deleteBtn = document.getElementById('delete-event-btn');
+  // Only Admins may delete an event; the organizer can manage everything else about their own event.
+  deleteBtn.style.display = isAdmin() ? '' : 'none';
+  deleteBtn.onclick = async () => {
     if (!confirm(`Delete event "${currentEvent.title}"?`)) return;
     try {
       await apiFetch(`/events/${eventId}`, { method: 'DELETE' });
@@ -315,14 +315,16 @@ async function loadEvent() {
     renderBracket(currentBracket);
 
     const champion = championName(getFinalSlot());
+    const statusLine = champion
+      ? `<p><strong>Event concluded</strong></p>`
+      : `<p><strong>Current round:</strong> ${currentEvent.currentRound}</p>`;
     document.getElementById('event-summary').innerHTML = `
       <p><strong>Region:</strong> ${currentEvent.region}</p>
       <p><strong>Dates:</strong> ${currentEvent.startDate} - ${currentEvent.endDate}</p>
-      <p><strong>Current round:</strong> ${currentEvent.currentRound}</p>
-      ${champion ? `<p><strong>&#127942; Champion:</strong> ${champion}</p>` : ''}
+      ${statusLine}
     `;
 
-    if (isAdmin()) renderAdminPanel();
+    if (canManageEvent(currentEvent)) renderManagePanel();
   } catch (err) {
     document.getElementById('event-summary').textContent = `Failed to load event: ${err.message}`;
   }

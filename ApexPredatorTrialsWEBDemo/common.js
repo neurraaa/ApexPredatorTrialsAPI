@@ -11,6 +11,11 @@ function isAdmin() {
   return !!user && user.role === 'Admin';
 }
 
+function canManageEvent(event) {
+  const user = getUser();
+  return !!user && (user.role === 'Admin' || user.id === event.organizerId);
+}
+
 function playerLink(id, name) {
   if (!id) return 'TBD';
   return `<a href="player.html?id=${id}">${name}</a>`;

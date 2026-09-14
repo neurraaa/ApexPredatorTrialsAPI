@@ -1,12 +1,24 @@
 const output = document.getElementById('output');
 function showOutput(data) { output.textContent = JSON.stringify(data, null, 2); }
 
-function renderEvent(event) {
+async function renderEvent(event) {
   const wrapper = document.createElement('div');
+
+  let statusLine = `<p>Current round: <strong>${event.currentRound || event.startingRound || 'TBD'}</strong></p>`;
+  try {
+    const bracket = await apiFetch(`/events/${event.id}/bracket`);
+    const finalSlot = bracket.find((s) => s.round === 'Final');
+    if (finalSlot && finalSlot.winnerPlayerId) {
+      statusLine = `<p><strong>Event concluded</strong></p>`;
+    }
+  } catch {
+    // Keep the default "current round" line if the bracket can't be loaded.
+  }
+
   wrapper.innerHTML = `
     <h3><a href="event.html?id=${event.id}">${event.title}</a> (${event.region})</h3>
     <p>${event.startDate} - ${event.endDate}</p>
-    <p>Current round: <strong>${event.currentRound || event.startingRound || 'TBD'}</strong></p>
+    ${statusLine}
   `;
 
   if (isAdmin()) {
@@ -37,7 +49,7 @@ async function loadEvents() {
       return;
     }
     for (const event of events) {
-      container.appendChild(renderEvent(event));
+      container.appendChild(await renderEvent(event));
     }
   } catch (err) {
     container.textContent = `Failed to load events: ${err.message}`;

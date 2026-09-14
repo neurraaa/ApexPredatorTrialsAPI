@@ -65,9 +65,10 @@ namespace ApexPredatorTrialsAPI.Controllers
         }
 
         [HttpPut("{id}")]
-        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Update(int id, GameEventWriteDto dto)
         {
+            if (!await CanManageEventAsync(id)) return Forbid();
+
             if (!await _service.UpdateAsync(id, dto))
             {
                 _logger.LogWarning("Update failed: Event ({EventId}) not found", id);
@@ -97,9 +98,10 @@ namespace ApexPredatorTrialsAPI.Controllers
         }
 
         [HttpPost("{id}/advance-phase")]
-        [Authorize(Roles = "Admin")]
         public async Task<ActionResult<GameEventDto>> AdvancePhase(int id, AdvancePhaseDto dto)
         {
+            if (!await CanManageEventAsync(id)) return Forbid();
+
             var result = await _service.AdvancePhaseAsync(id, dto);
 
             switch (result.Status)
@@ -120,9 +122,10 @@ namespace ApexPredatorTrialsAPI.Controllers
         }
 
         [HttpPost("{id}/conclude")]
-        [Authorize(Roles = "Admin")]
         public async Task<ActionResult<GameEventScheduleDto>> Conclude(int id, ConcludeEventDto dto)
         {
+            if (!await CanManageEventAsync(id)) return Forbid();
+
             var result = await _service.ConcludeAsync(id, dto);
 
             switch (result.Status)
@@ -140,6 +143,23 @@ namespace ApexPredatorTrialsAPI.Controllers
 
                     return Ok(result.Data);
             }
+        }
+
+        // Admins can manage any event; the organizer who created an event can manage only their own
+        // (edit basic fields, advance the bracket, declare the Final winner) — but never delete it,
+        // which stays Admin-only via [Authorize(Roles = "Admin")] on that action.
+        private async Task<bool> CanManageEventAsync(int eventId)
+        {
+            if (User.IsInRole("Admin")) return true;
+
+            var userIdClaim = User.FindFirstValue(JwtRegisteredClaimNames.Sub)
+                ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (userIdClaim is null || !int.TryParse(userIdClaim, out var userId))
+                return false;
+
+            var ev = await _service.GetByIdAsync(eventId);
+            return ev is not null && ev.OrganizerId == userId;
         }
     }
 }

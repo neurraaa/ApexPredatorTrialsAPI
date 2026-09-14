@@ -19,11 +19,17 @@ namespace ApexPredatorTrialsUNIT.Controllers
         public EventsControllerTest()
         {
             _controller = new EventsController(_serviceMock.Object, NullLogger<EventsController>.Instance);
+            SetUser(userId: 1, isAdmin: true);
+        }
 
-            var identity = new ClaimsIdentity(new[] { new Claim(JwtRegisteredClaimNames.Sub, "1") });
+        private void SetUser(int userId, bool isAdmin)
+        {
+            var claims = new List<Claim> { new(JwtRegisteredClaimNames.Sub, userId.ToString()) };
+            if (isAdmin) claims.Add(new Claim(ClaimTypes.Role, "Admin"));
+
             _controller.ControllerContext = new ControllerContext
             {
-                HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(identity) }
+                HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity(claims, "TestAuth", ClaimTypes.Name, ClaimTypes.Role)) }
             };
         }
 
@@ -172,6 +178,32 @@ namespace ApexPredatorTrialsUNIT.Controllers
             var result = await _controller.Update(99, dto);
 
             Assert.IsType<NotFoundResult>(result);
+        }
+
+        [Fact]
+        public async Task Update_AsOrganizer_ReturnsNoContent()
+        {
+            SetUser(userId: 2, isAdmin: false);
+            var dto = new GameEventWriteDto { Title = "Hunter Protocol", Region = "EU" };
+            _serviceMock.Setup(s => s.GetByIdAsync(5)).ReturnsAsync(new GameEventDto { Id = 5, OrganizerId = 2 });
+            _serviceMock.Setup(s => s.UpdateAsync(5, dto)).ReturnsAsync(true);
+
+            var result = await _controller.Update(5, dto);
+
+            Assert.IsType<NoContentResult>(result);
+        }
+
+        [Fact]
+        public async Task Update_AsNonOrganizerNonAdmin_ReturnsForbid()
+        {
+            SetUser(userId: 3, isAdmin: false);
+            var dto = new GameEventWriteDto { Title = "Hunter Protocol", Region = "EU" };
+            _serviceMock.Setup(s => s.GetByIdAsync(5)).ReturnsAsync(new GameEventDto { Id = 5, OrganizerId = 2 });
+
+            var result = await _controller.Update(5, dto);
+
+            Assert.IsType<ForbidResult>(result);
+            _serviceMock.Verify(s => s.UpdateAsync(It.IsAny<int>(), It.IsAny<GameEventWriteDto>()), Times.Never);
         }
 
         [Fact]
